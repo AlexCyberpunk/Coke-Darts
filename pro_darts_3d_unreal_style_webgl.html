@@ -87,6 +87,33 @@
         }
         #player-setup.hidden { display: none !important; }
         .hud-hidden { opacity: 0; pointer-events: none; }
+
+        /* Adaptación móvil avanzada */
+        @media (max-width: 768px) {
+            #desktop-top-row { display: none !important; }
+            #mobile-top-bar { display: flex !important; }
+            #hud-container {
+                padding: 0.5rem !important;
+            }
+            #golf-bar-panel {
+                padding: 0.45rem 0.65rem !important;
+                border-radius: 1rem !important;
+                background: rgba(10, 14, 26, 0.88) !important;
+            }
+            #golf-bar-track {
+                height: 2rem !important;
+            }
+            #btn-action-main {
+                width: 100% !important;
+                justify-content: center !important;
+                padding: 0.6rem 1rem !important;
+                font-size: 0.95rem !important;
+            }
+        }
+        @media (min-width: 769px) {
+            #mobile-top-bar { display: none !important; }
+            #desktop-top-row { display: flex !important; }
+        }
     </style>
 </head>
 <body>
@@ -170,8 +197,37 @@
     <!-- HUD Principal -->
     <div id="hud-container" class="hud-hidden relative z-10 pointer-events-none w-full h-full flex flex-col justify-between p-3 sm:p-6 transition-opacity duration-300">
 
-        <!-- Fila Superior: Marcador + Fases + Ajustes -->
-        <div class="flex flex-wrap items-start justify-between gap-3 w-full">
+        <!-- Barra Superior Móvil (Ultra ligera para no tapar la diana en smartphones) -->
+        <div id="mobile-top-bar" class="flex md:hidden items-center justify-between w-full px-1 py-1 pointer-events-auto">
+            <!-- Píldora de Marcador Versus -->
+            <div class="flex items-center gap-2 px-3 py-1.5 rounded-full bg-slate-950/85 backdrop-blur-md border border-white/20 shadow-lg">
+                <span id="mob-p1-tag" class="text-xs font-bold text-sky-400">COKE: <span id="mob-p1-score" class="font-display font-black text-white text-sm">501</span></span>
+                <span class="text-[10px] text-slate-500 font-bold">VS</span>
+                <span id="mob-p2-tag" class="text-xs font-bold text-rose-400">IA: <span id="mob-p2-score" class="font-display font-black text-slate-300 text-sm">501</span></span>
+            </div>
+
+            <!-- Dardos restantes de la ronda (3 círculos de estado) -->
+            <div class="flex items-center gap-1.5 px-3 py-2 rounded-full bg-slate-950/85 backdrop-blur-md border border-white/20 shadow-lg">
+                <span class="text-[10px] uppercase font-bold text-slate-400 mr-0.5">Dardos:</span>
+                <div id="mob-dart-1" class="w-2.5 h-2.5 rounded-full bg-amber-400 shadow-[0_0_6px_#f59e0b]"></div>
+                <div id="mob-dart-2" class="w-2.5 h-2.5 rounded-full bg-amber-400 shadow-[0_0_6px_#f59e0b]"></div>
+                <div id="mob-dart-3" class="w-2.5 h-2.5 rounded-full bg-amber-400 shadow-[0_0_6px_#f59e0b]"></div>
+            </div>
+
+            <!-- Botón de Menú y Switch Móvil -->
+            <div class="flex items-center gap-1.5">
+                <a href="mobile.html" class="px-2.5 py-1.5 rounded-full bg-emerald-600/90 hover:bg-emerald-500 border border-emerald-400/50 text-white flex items-center justify-center text-[11px] font-bold shadow-lg active:scale-90 transition gap-1">
+                    <span>📱</span>
+                    <span>Modo Móvil</span>
+                </a>
+                <button id="mob-btn-menu" type="button" class="w-9 h-9 rounded-full bg-slate-900/90 border border-white/20 text-white flex items-center justify-center text-sm shadow-lg active:scale-90 transition">
+                    ⚙️
+                </button>
+            </div>
+        </div>
+
+        <!-- Fila Superior Escritorio (Marcador + Fases + Ajustes completos en PC) -->
+        <div id="desktop-top-row" class="hidden md:flex flex-wrap items-start justify-between gap-3 w-full">
 
             <!-- Panel de Puntuación 501 / Práctica -->
             <div class="hud-glass rounded-2xl p-4 sm:p-5 pointer-events-auto min-w-[260px] sm:min-w-[300px] transition-all">
@@ -343,7 +399,7 @@
                 </div>
 
                 <!-- Pista de la Barra -->
-                <div class="relative w-full h-9 sm:h-11 bg-slate-950/90 rounded-xl border border-white/15 overflow-hidden shadow-inner p-1">
+                <div id="golf-bar-track" class="relative w-full h-8 sm:h-11 bg-slate-950/90 rounded-xl border border-white/15 overflow-hidden shadow-inner p-1">
                     <!-- Marcas de regla decorativas -->
                     <div class="absolute inset-0 flex justify-between px-4 items-center opacity-20 pointer-events-none">
                         <div class="w-px h-full bg-white"></div>
@@ -1949,6 +2005,39 @@
                 }
             }
 
+            // Actualizar Marcador Móvil
+            const mobP1Score = document.getElementById('mob-p1-score');
+            const mobP2Score = document.getElementById('mob-p2-score');
+            const mobP1Tag = document.getElementById('mob-p1-tag');
+            const mobP2Tag = document.getElementById('mob-p2-tag');
+
+            if (mobP1Score) {
+                const s1 = state.activePlayer === 'P1' ? state.score : state.scoreP1;
+                const s2 = (state.activePlayer === 'P2' || state.activePlayer === 'BOT') ? state.score : state.scoreP2;
+                mobP1Score.textContent = s1;
+                if (mobP2Score) mobP2Score.textContent = s2;
+
+                if (state.activePlayer === 'P1') {
+                    mobP1Tag.className = 'text-xs font-bold text-sky-300 drop-shadow-[0_0_6px_#38bdf8]';
+                    if (mobP2Tag) mobP2Tag.className = 'text-xs font-semibold text-slate-400 opacity-60';
+                } else {
+                    mobP1Tag.className = 'text-xs font-semibold text-slate-400 opacity-60';
+                    if (mobP2Tag) mobP2Tag.className = 'text-xs font-bold text-rose-400 drop-shadow-[0_0_6px_#f43f5e]';
+                }
+            }
+
+            // Indicadores de dardos en móvil (3 círculos)
+            for (let i = 1; i <= 3; i++) {
+                const dot = document.getElementById(`mob-dart-${i}`);
+                if (dot) {
+                    if (i <= state.dartsInTurn.length) {
+                        dot.className = 'w-2.5 h-2.5 rounded-full bg-slate-600 border border-slate-500 opacity-40';
+                    } else {
+                        dot.className = 'w-2.5 h-2.5 rounded-full bg-amber-400 shadow-[0_0_6px_#f59e0b]';
+                    }
+                }
+            }
+
             updateCricketBoardUI();
         }
 
@@ -2055,11 +2144,40 @@
             if (state.phase === 2) randomizeSweetSpot();
         });
 
-        window.addEventListener('resize', () => {
-            camera.aspect = window.innerWidth / window.innerHeight;
+        // Adaptación dinámica de cámara para encuadre perfecto en móviles vs pantallas anchas
+        function updateCameraViewport() {
+            const width = window.innerWidth;
+            const height = window.innerHeight;
+            const aspect = width / height;
+            camera.aspect = aspect;
+
+            if (aspect < 0.72) {
+                // Móvil vertical (Portrait): mayor campo de visión y retroceso para ver la diana completa sin que choque con los controles inferiores
+                camera.fov = 54;
+                DEFAULT_CAM_POS.set(0, 0.42, 9.8);
+                DEFAULT_CAM_LOOK.set(0, 0.28, 0);
+            } else if (aspect < 1.1) {
+                // Tablet / Cuadrado
+                camera.fov = 44;
+                DEFAULT_CAM_POS.set(0, 0.25, 7.8);
+                DEFAULT_CAM_LOOK.set(0, 0.12, 0);
+            } else {
+                // Monitor de escritorio
+                camera.fov = 38;
+                DEFAULT_CAM_POS.set(0, 0.12, 6.45);
+                DEFAULT_CAM_LOOK.set(0, -0.05, 0);
+            }
+            targetCamPos.copy(DEFAULT_CAM_POS);
+            targetCamLook.copy(DEFAULT_CAM_LOOK);
+            currentCamPos.copy(DEFAULT_CAM_POS);
+            currentCamLook.copy(DEFAULT_CAM_LOOK);
+            camera.position.copy(DEFAULT_CAM_POS);
+            camera.lookAt(DEFAULT_CAM_LOOK);
             camera.updateProjectionMatrix();
-            renderer.setSize(window.innerWidth, window.innerHeight);
-        });
+            renderer.setSize(width, height);
+        }
+
+        window.addEventListener('resize', updateCameraViewport);
 
         /********************************************************************
          * 10. BUCLE PRINCIPAL DE ANIMACIÓN Y FÍSICAS (60/120 FPS)
@@ -2286,6 +2404,14 @@
                     openSetupModal();
                 });
             }
+            // Botón de menú rápido en móvil
+            const mobBtnMenu = document.getElementById('mob-btn-menu');
+            if (mobBtnMenu) {
+                mobBtnMenu.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    openSetupModal();
+                });
+            }
         }
 
         // Función que lanza el juego cuando el usuario hace clic en ¡JUGAR!
@@ -2309,6 +2435,9 @@
             // Iniciar audio
             sound.init();
 
+            // Actualizar cámara por si cambió orientación
+            updateCameraViewport();
+
             // Iniciar la partida
             resetMatch();
         }
@@ -2317,6 +2446,7 @@
         window.startPowerMode = startPowerMode;
 
         window.onload = () => {
+            updateCameraViewport();
             initSetupModalControls();
             updateHUD();
             setPhase(1);

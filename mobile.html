@@ -1,0 +1,1034 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>Pro Darts 3D – Edición Móvil</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:ital,wght@0,500;0,700;1,700&family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
+    <style>
+        * {
+            user-select: none;
+            -webkit-user-select: none;
+            -webkit-touch-callout: none;
+            box-sizing: border-box;
+        }
+        body, html {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            background-color: #06070b;
+            font-family: 'Inter', sans-serif;
+            color: #f8fafc;
+            touch-action: none;
+        }
+        .font-display { font-family: 'Chakra Petch', sans-serif; }
+        
+        #canvas-container {
+            position: absolute;
+            inset: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 1;
+        }
+
+        .hud-glass {
+            background: rgba(10, 14, 24, 0.85);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.12);
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+        }
+
+        .vignette-overlay {
+            position: absolute;
+            inset: 0;
+            pointer-events: none;
+            z-index: 2;
+            background: radial-gradient(circle at center, transparent 48%, rgba(3, 5, 10, 0.85) 100%);
+        }
+
+        /* Modal inicial / opciones */
+        #mobile-setup-modal {
+            position: fixed;
+            inset: 0;
+            background: rgba(3, 5, 10, 0.94);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            z-index: 9999;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 1rem;
+            overflow-y: auto;
+        }
+        #mobile-setup-modal.hidden { display: none !important; }
+
+        @keyframes popFeedback {
+            0% { transform: translate(-50%, -40%) scale(0.6); opacity: 0; }
+            20% { transform: translate(-50%, -50%) scale(1.1); opacity: 1; }
+            80% { transform: translate(-50%, -52%) scale(1); opacity: 1; }
+            100% { transform: translate(-50%, -65%) scale(0.9); opacity: 0; }
+        }
+        .animate-feedback {
+            animation: popFeedback 1.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+        }
+
+        .sweet-spot-glow {
+            box-shadow: 0 0 16px rgba(16, 185, 129, 0.85), inset 0 0 6px rgba(255, 255, 255, 0.7);
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Contenedor 3D WebGL -->
+    <div id="canvas-container"></div>
+    <div class="vignette-overlay"></div>
+
+    <!-- Feedback flotante al clavar dardo -->
+    <div id="floating-feedback-container" class="pointer-events-none fixed inset-0 flex items-center justify-center z-40"></div>
+
+    <!-- HUD Móvil Limpio (Cero obstrucción de la diana) -->
+    <div class="relative z-10 pointer-events-none w-full h-full flex flex-col justify-between p-3" style="padding-top: max(0.75rem, env(safe-area-inset-top)); padding-bottom: max(0.75rem, env(safe-area-inset-bottom));">
+
+        <!-- Zona Superior: Marcador + Turno + Cierre (Pegado arriba sin tapar la diana) -->
+        <div class="flex flex-col gap-1.5 w-full pointer-events-auto">
+            <!-- Barra Superior Flotante: Marcador + Turno + Menú -->
+            <div class="flex items-center justify-between w-full">
+                <!-- Marcador Versus estilo Píldora -->
+                <div class="hud-glass flex items-center gap-2 px-3.5 py-1.5 rounded-full border-white/20">
+                    <div id="mob-p1-box" class="flex items-baseline gap-1">
+                        <span id="mob-p1-name" class="text-[11px] font-bold text-sky-400 uppercase">COKE</span>
+                        <span id="mob-p1-score" class="font-display font-extrabold text-white text-base">501</span>
+                    </div>
+                    <span class="text-[10px] font-extrabold text-slate-500">VS</span>
+                    <div id="mob-p2-box" class="flex items-baseline gap-1">
+                        <span id="mob-p2-name" class="text-[11px] font-bold text-rose-400 uppercase">IA</span>
+                        <span id="mob-p2-score" class="font-display font-extrabold text-slate-300 text-base">501</span>
+                    </div>
+                </div>
+
+                <!-- Indicador de Dardos de la Ronda (3 esferas luminosas) -->
+                <div class="hud-glass flex items-center gap-1.5 px-3 py-1.5 rounded-full border-white/20">
+                    <span class="text-[10px] uppercase font-bold text-slate-400 mr-0.5">Dardos</span>
+                    <div id="mob-dart-1" class="w-2.5 h-2.5 rounded-full bg-amber-400 shadow-[0_0_8px_#f59e0b]"></div>
+                    <div id="mob-dart-2" class="w-2.5 h-2.5 rounded-full bg-amber-400 shadow-[0_0_8px_#f59e0b]"></div>
+                    <div id="mob-dart-3" class="w-2.5 h-2.5 rounded-full bg-amber-400 shadow-[0_0_8px_#f59e0b]"></div>
+                </div>
+
+                <!-- Botón Opciones / Menú -->
+                <button id="btn-open-menu" class="w-9 h-9 rounded-full bg-slate-900/90 border border-white/20 text-white flex items-center justify-center text-sm shadow-lg active:scale-90 transition">
+                    ⚙️
+                </button>
+            </div>
+
+            <!-- Sugerencia de Cierre / Estado de Ronda en centro superior -->
+            <div class="w-full flex justify-center pointer-events-none">
+                <div id="mob-checkout-banner" class="hud-glass text-[10px] font-semibold text-amber-300 px-3 py-0.5 rounded-full border-amber-400/30 opacity-90 text-center">
+                    Ronda 1 • Apunta tocando la diana
+                </div>
+            </div>
+        </div>
+
+        <!-- Zona Inferior de Control de Tiro (Área del pulgar) -->
+        <div class="w-full max-w-md mx-auto flex flex-col gap-2 pointer-events-auto">
+
+            <!-- Barra de Precisión Estilo Golf -->
+            <div id="mob-golf-panel" class="hud-glass w-full rounded-2xl p-2.5 transition-all duration-200 border-white/15">
+                <div class="flex items-center justify-between text-[11px] mb-1.5 px-1">
+                    <span id="mob-phase-badge" class="font-bold text-amber-300 uppercase tracking-wider flex items-center gap-1.5">
+                        <span class="w-2 h-2 rounded-full bg-amber-400 animate-pulse"></span>
+                        <span id="mob-phase-text">Paso 1: Elige zona</span>
+                    </span>
+                    <span id="mob-score-preview" class="text-sky-300 font-bold">Precisión: --</span>
+                </div>
+
+                <!-- Pista de la Barra -->
+                <div class="relative w-full h-8 bg-slate-950/90 rounded-xl border border-white/15 overflow-hidden p-1 shadow-inner">
+                    <!-- Centro y Sweet Spot -->
+                    <div id="mob-sweet-zone" class="absolute top-1 bottom-1 rounded-md bg-emerald-500/50 border border-emerald-300 sweet-spot-glow transition-all" style="left: 45%; width: 10%;">
+                        <div class="absolute left-1/2 top-0 bottom-0 -translate-x-1/2 w-0.5 bg-white shadow-[0_0_6px_#fff]"></div>
+                    </div>
+                    <!-- Aguja / Marcador móvil -->
+                    <div id="mob-bar-needle" class="absolute top-0 bottom-0 w-2.5 -ml-1 rounded-full bg-white shadow-[0_0_12px_#38bdf8]" style="left: 10%;"></div>
+                </div>
+            </div>
+
+            <!-- Botón Grande de Acción Táctil -->
+            <button id="mob-btn-action" class="w-full py-3 px-4 rounded-2xl bg-gradient-to-r from-amber-500 via-rose-500 to-indigo-600 active:scale-95 text-white font-display font-extrabold text-base tracking-wider shadow-lg shadow-rose-500/25 transition-transform flex items-center justify-center gap-2">
+                <span>🎯</span>
+                <span id="mob-btn-action-label">FIJAR ÁREA DE TIRO</span>
+            </button>
+        </div>
+
+    </div>
+
+    <!-- Modal de Configuración y Oponentes para Móvil -->
+    <div id="mobile-setup-modal">
+        <div class="hud-glass max-w-sm w-full p-5 sm:p-6 rounded-3xl border border-white/20 text-center flex flex-col gap-4 shadow-2xl">
+            <div>
+                <h2 class="font-display text-3xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-amber-400 via-rose-400 to-indigo-400">
+                    🎯 PRO DARTS 3D
+                </h2>
+                <p class="text-xs text-slate-300 mt-0.5">Versión Móvil Optimizada</p>
+            </div>
+
+            <!-- Modo de Juego -->
+            <div class="text-left">
+                <label class="text-[11px] font-bold uppercase tracking-wider text-slate-400 mb-1 block">Oponente</label>
+                <div class="grid grid-cols-3 gap-1.5" id="mob-opp-selector">
+                    <button type="button" data-opp="VS_BOT" class="mob-opt-btn active-opt py-2 px-1 rounded-xl border border-sky-400 bg-sky-500/25 text-sky-200 font-bold text-xs flex flex-col items-center gap-1">
+                        <span>🤖</span>
+                        <span>Vs Bot</span>
+                    </button>
+                    <button type="button" data-opp="2P" class="mob-opt-btn py-2 px-1 rounded-xl border border-white/10 bg-slate-900/60 text-slate-300 font-semibold text-xs flex flex-col items-center gap-1">
+                        <span>👥</span>
+                        <span>2 Jugad.</span>
+                    </button>
+                    <button type="button" data-opp="SOLO" class="mob-opt-btn py-2 px-1 rounded-xl border border-white/10 bg-slate-900/60 text-slate-300 font-semibold text-xs flex flex-col items-center gap-1">
+                        <span>🎯</span>
+                        <span>Práctica</span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Reglas (501 / Cricket) -->
+            <div class="text-left">
+                <label class="text-[11px] font-bold uppercase tracking-wider text-slate-400 mb-1 block">Reglas</label>
+                <div class="grid grid-cols-2 gap-2" id="mob-mode-selector">
+                    <button type="button" data-mode="501" class="mob-mode-btn py-2 px-3 rounded-xl border border-amber-400 bg-amber-500/25 text-amber-200 font-bold text-xs">
+                        🎯 Torneo 501
+                    </button>
+                    <button type="button" data-mode="CRICKET" class="mob-mode-btn py-2 px-3 rounded-xl border border-white/10 bg-slate-900/60 text-slate-300 font-semibold text-xs">
+                        📋 Cricket
+                    </button>
+                </div>
+            </div>
+
+            <!-- Nombres -->
+            <div class="text-left flex flex-col gap-2">
+                <div>
+                    <label class="text-[11px] font-bold uppercase tracking-wider text-slate-400 block mb-0.5">Tu Nombre</label>
+                    <input type="text" id="mob-input-p1" value="COKE" class="w-full py-1.5 px-3 rounded-xl border border-white/15 bg-slate-950/80 text-white font-medium text-xs focus:border-amber-400 focus:outline-none" />
+                </div>
+                <div id="mob-p2-name-wrap">
+                    <label class="text-[11px] font-bold uppercase tracking-wider text-slate-400 block mb-0.5">Rival / Ordenador</label>
+                    <input type="text" id="mob-input-p2" value="ORDENADOR (IA)" class="w-full py-1.5 px-3 rounded-xl border border-white/15 bg-slate-950/80 text-white font-medium text-xs focus:border-sky-400 focus:outline-none" />
+                </div>
+            </div>
+
+            <!-- Dificultad IA -->
+            <div class="text-left" id="mob-diff-wrap">
+                <label class="text-[11px] font-bold uppercase tracking-wider text-slate-400 mb-1 block">Nivel del Bot</label>
+                <div class="grid grid-cols-3 gap-1.5">
+                    <button type="button" data-diff="0" class="mob-diff-btn py-1 rounded-lg border border-white/10 bg-slate-900/60 text-slate-300 text-xs">Fácil</button>
+                    <button type="button" data-diff="1" class="mob-diff-btn py-1 rounded-lg border border-sky-400 bg-sky-500/25 text-sky-200 text-xs font-bold">Normal</button>
+                    <button type="button" data-diff="2" class="mob-diff-btn py-1 rounded-lg border border-white/10 bg-slate-900/60 text-slate-300 text-xs">Pro IA</button>
+                </div>
+            </div>
+
+            <!-- Botón Jugar -->
+            <button id="mob-btn-play-confirm" type="button" class="w-full py-3 px-6 rounded-2xl bg-gradient-to-r from-amber-500 via-rose-500 to-indigo-600 text-white font-display font-extrabold text-base tracking-wider shadow-lg shadow-rose-500/30 active:scale-95 transition-all">
+                ¡JUGAR AHORA!
+            </button>
+
+            <div class="flex items-center justify-center gap-4 pt-1">
+                <a href="index.html" class="text-xs text-slate-400 hover:text-white transition">🏠 Menú Principal</a>
+                <span class="text-slate-600">•</span>
+                <a href="pro_darts_3d_unreal_style_webgl.html" class="text-xs text-slate-400 hover:text-white transition">🖥️ Versión PC</a>
+            </div>
+        </div>
+    </div>
+
+    <!-- Script del Motor de Juego 3D Móvil -->
+    <script>
+        /********************************************************************
+         * 1. AUDIO SINTETIZADO (WEB AUDIO API) + HÁPTICA VIBRACIÓN
+         ********************************************************************/
+        class MobileSoundEngine {
+            constructor() { this.ctx = null; }
+            init() {
+                if (!this.ctx) {
+                    const AudioCtx = window.AudioContext || window.webkitAudioContext;
+                    if (AudioCtx) this.ctx = new AudioCtx();
+                }
+                if (this.ctx && this.ctx.state === 'suspended') this.ctx.resume();
+            }
+            vibrate(ms = 15) {
+                if (navigator.vibrate) {
+                    try { navigator.vibrate(ms); } catch (e) {}
+                }
+            }
+            playLock() {
+                this.init();
+                this.vibrate(20);
+                if (!this.ctx) return;
+                const now = this.ctx.currentTime;
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+                osc.type = 'triangle';
+                osc.frequency.setValueAtTime(540, now);
+                osc.frequency.exponentialRampToValueAtTime(720, now + 0.08);
+                gain.gain.setValueAtTime(0.2, now);
+                gain.gain.exponentialRampToValueAtTime(0.001, now + 0.09);
+                osc.connect(gain);
+                gain.connect(this.ctx.destination);
+                osc.start(now);
+                osc.stop(now + 0.09);
+            }
+            playWhoosh() {
+                this.init();
+                if (!this.ctx) return;
+                const now = this.ctx.currentTime;
+                const bufferSize = this.ctx.sampleRate * 0.2;
+                const buffer = this.ctx.createBuffer(1, bufferSize, this.ctx.sampleRate);
+                const data = buffer.getChannelData(0);
+                for (let i = 0; i < bufferSize; i++) data[i] = Math.random() * 2 - 1;
+                const noise = this.ctx.createBufferSource();
+                noise.buffer = buffer;
+                const filter = this.ctx.createBiquadFilter();
+                filter.type = 'bandpass';
+                filter.frequency.setValueAtTime(450, now);
+                filter.frequency.exponentialRampToValueAtTime(1200, now + 0.15);
+                const gain = this.ctx.createGain();
+                gain.gain.setValueAtTime(0.01, now);
+                gain.gain.linearRampToValueAtTime(0.2, now + 0.06);
+                gain.gain.exponentialRampToValueAtTime(0.001, now + 0.2);
+                noise.connect(filter);
+                filter.connect(gain);
+                gain.connect(this.ctx.destination);
+                noise.start(now);
+            }
+            playImpact(isHigh = false) {
+                this.init();
+                this.vibrate(isHigh ? [25, 30, 45] : 30);
+                if (!this.ctx) return;
+                const now = this.ctx.currentTime;
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(140, now);
+                osc.frequency.exponentialRampToValueAtTime(40, now + 0.12);
+                gain.gain.setValueAtTime(0.5, now);
+                gain.gain.exponentialRampToValueAtTime(0.001, now + 0.13);
+                osc.connect(gain);
+                gain.connect(this.ctx.destination);
+                osc.start(now);
+                osc.stop(now + 0.13);
+            }
+            playFanfare() {
+                this.init();
+                this.vibrate([40, 60, 40, 60, 100]);
+                if (!this.ctx) return;
+                const now = this.ctx.currentTime;
+                [523.25, 659.25, 783.99, 1046.50].forEach((freq, idx) => {
+                    const osc = this.ctx.createOscillator();
+                    const gain = this.ctx.createGain();
+                    osc.type = 'triangle';
+                    osc.frequency.setValueAtTime(freq, now + idx * 0.08);
+                    gain.gain.setValueAtTime(0.15, now + idx * 0.08);
+                    gain.gain.exponentialRampToValueAtTime(0.001, now + idx * 0.08 + 0.4);
+                    osc.connect(gain);
+                    gain.connect(this.ctx.destination);
+                    osc.start(now + idx * 0.08);
+                    osc.stop(now + idx * 0.08 + 0.41);
+                });
+            }
+        }
+        const sound = new MobileSoundEngine();
+
+        /********************************************************************
+         * 2. REGLAMENTO OFICIAL DE LA DIANA Y ESCALA 3D
+         ********************************************************************/
+        const DART_NUMBERS = [20, 1, 18, 4, 13, 6, 10, 15, 2, 17, 3, 19, 7, 16, 8, 11, 14, 9, 12, 5];
+        const BOARD_RADII = {
+            innerBull: 0.075,
+            outerBull: 0.185,
+            tripleInner: 0.98,
+            tripleOuter: 1.09,
+            doubleInner: 1.59,
+            doubleOuter: 2.0,
+            boardEdge: 2.45
+        };
+        const BOARD_Z_SURFACE = 0.14;
+
+        /********************************************************************
+         * 3. TEXTURA PROCEDURAL DE SISAL (OPTIMIZADA PARA MÓVIL)
+         ********************************************************************/
+        function createMobileDartboardTextures() {
+            const size = 1024;
+            const canvas = document.createElement('canvas');
+            canvas.width = size;
+            canvas.height = size;
+            const ctx = canvas.getContext('2d');
+            const cx = size / 2;
+            const cy = size / 2;
+            const scale = (size / 2) / BOARD_RADII.boardEdge;
+
+            ctx.fillStyle = '#0f1115';
+            ctx.fillRect(0, 0, size, size);
+
+            const sliceAngle = (Math.PI * 2) / 20;
+            for (let i = 0; i < 20; i++) {
+                const startAngle = -Math.PI / 2 - sliceAngle / 2 + i * sliceAngle;
+                const endAngle = startAngle + sliceAngle;
+                const isEven = i % 2 === 0;
+
+                ctx.beginPath();
+                ctx.moveTo(cx, cy);
+                ctx.arc(cx, cy, BOARD_RADII.doubleOuter * scale, startAngle, endAngle);
+                ctx.fillStyle = isEven ? '#121316' : '#f3ead8';
+                ctx.fill();
+
+                // Doble
+                ctx.beginPath();
+                ctx.arc(cx, cy, BOARD_RADII.doubleOuter * scale, startAngle, endAngle);
+                ctx.arc(cx, cy, BOARD_RADII.doubleInner * scale, endAngle, startAngle, true);
+                ctx.fillStyle = isEven ? '#c81d25' : '#117a37';
+                ctx.fill();
+
+                // Triple
+                ctx.beginPath();
+                ctx.arc(cx, cy, BOARD_RADII.tripleOuter * scale, startAngle, endAngle);
+                ctx.arc(cx, cy, BOARD_RADII.tripleInner * scale, endAngle, startAngle, true);
+                ctx.fillStyle = isEven ? '#c81d25' : '#117a37';
+                ctx.fill();
+            }
+
+            // Outer Bull
+            ctx.beginPath();
+            ctx.arc(cx, cy, BOARD_RADII.outerBull * scale, 0, Math.PI * 2);
+            ctx.fillStyle = '#117a37';
+            ctx.fill();
+
+            // Inner Bull
+            ctx.beginPath();
+            ctx.arc(cx, cy, BOARD_RADII.innerBull * scale, 0, Math.PI * 2);
+            ctx.fillStyle = '#c81d25';
+            ctx.fill();
+
+            // Números
+            const numberRadius = 1.95 * scale;
+            ctx.font = '800 58px "Chakra Petch", sans-serif';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillStyle = '#f8fafc';
+
+            for (let i = 0; i < 20; i++) {
+                const angle = -Math.PI / 2 + i * sliceAngle;
+                const nx = cx + Math.cos(angle) * numberRadius;
+                const ny = cy + Math.sin(angle) * numberRadius;
+                ctx.fillText(DART_NUMBERS[i].toString(), nx, ny);
+            }
+
+            const colorTex = new THREE.CanvasTexture(canvas);
+            colorTex.anisotropy = 4;
+            return colorTex;
+        }
+
+        /********************************************************************
+         * 4. ESCENA 3D Y CÁMARA VERTICAL MÓVIL
+         ********************************************************************/
+        const container = document.getElementById('canvas-container');
+        const scene = new THREE.Scene();
+        scene.background = new THREE.Color(0x06070b);
+
+        const camera = new THREE.PerspectiveCamera(54, window.innerWidth / window.innerHeight, 0.1, 50);
+        const CAM_POS = new THREE.Vector3(0, 0.42, 9.8);
+        const CAM_LOOK = new THREE.Vector3(0, 0.28, 0);
+        camera.position.copy(CAM_POS);
+        camera.lookAt(CAM_LOOK);
+
+        const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+        renderer.toneMapping = THREE.ACESFilmicToneMapping;
+        renderer.toneMappingExposure = 1.2;
+        container.appendChild(renderer.domElement);
+
+        // Iluminación
+        const ambientLight = new THREE.AmbientLight(0x2a3042, 0.7);
+        scene.add(ambientLight);
+
+        const spotLight = new THREE.SpotLight(0xfff1d6, 3.2);
+        spotLight.position.set(0.3, 3.5, 4.0);
+        spotLight.angle = Math.PI / 4.2;
+        spotLight.penumbra = 0.6;
+        scene.add(spotLight);
+
+        const rimLight = new THREE.DirectionalLight(0x38bdf8, 0.8);
+        rimLight.position.set(-3.5, -1.2, 2.5);
+        scene.add(rimLight);
+
+        // Diana 3D
+        const boardGroup = new THREE.Group();
+        scene.add(boardGroup);
+
+        const boardTex = createMobileDartboardTextures();
+        const faceMat = new THREE.MeshStandardMaterial({
+            map: boardTex,
+            roughness: 0.8,
+            metalness: 0.05
+        });
+
+        const cylinderGeo = new THREE.CylinderGeometry(BOARD_RADII.boardEdge, BOARD_RADII.boardEdge, BOARD_Z_SURFACE * 2, 64);
+        cylinderGeo.rotateX(Math.PI / 2);
+        const sideMat = new THREE.MeshStandardMaterial({ color: 0x090a0f, roughness: 0.6 });
+        const bodyMesh = new THREE.Mesh(cylinderGeo, sideMat);
+        boardGroup.add(bodyMesh);
+
+        const faceGeo = new THREE.CircleGeometry(BOARD_RADII.boardEdge, 64);
+        const faceMesh = new THREE.Mesh(faceGeo, faceMat);
+        faceMesh.position.z = BOARD_Z_SURFACE + 0.001;
+        boardGroup.add(faceMesh);
+
+        // Retícula de Apuntado (Fase 1)
+        const aimGroup = new THREE.Group();
+        aimGroup.position.z = BOARD_Z_SURFACE + 0.005;
+        scene.add(aimGroup);
+
+        const aimRingGeo = new THREE.RingGeometry(0.18, 0.22, 32);
+        const aimRingMat = new THREE.MeshBasicMaterial({ color: 0xf59e0b, transparent: true, opacity: 0.85 });
+        const aimRingMesh = new THREE.Mesh(aimRingGeo, aimRingMat);
+        aimGroup.add(aimRingMesh);
+
+        const aimDotGeo = new THREE.CircleGeometry(0.035, 16);
+        const aimDotMat = new THREE.MeshBasicMaterial({ color: 0xffffff });
+        aimGroup.add(new THREE.Mesh(aimDotGeo, aimDotMat));
+
+        // Punto Oscilante (Fase 3)
+        const swayGroup = new THREE.Group();
+        swayGroup.position.z = BOARD_Z_SURFACE + 0.006;
+        swayGroup.visible = false;
+        scene.add(swayGroup);
+
+        const swayRingGeo = new THREE.RingGeometry(0.04, 0.08, 16);
+        const swayRingMat = new THREE.MeshBasicMaterial({ color: 0x38bdf8, transparent: true, opacity: 0.9 });
+        swayGroup.add(new THREE.Mesh(swayRingGeo, swayRingMat));
+
+        /********************************************************************
+         * 5. MODELADO DE DARDOS 3D
+         ********************************************************************/
+        function createDartMesh(colorHex = 0xf59e0b) {
+            const root = new THREE.Group();
+            const tipGeo = new THREE.ConeGeometry(0.015, 0.18, 8);
+            tipGeo.rotateX(-Math.PI / 2);
+            const tipMat = new THREE.MeshStandardMaterial({ color: 0xd1d5db, metalness: 0.9, roughness: 0.2 });
+            const tipMesh = new THREE.Mesh(tipGeo, tipMat);
+            tipMesh.position.z = -0.09;
+            root.add(tipMesh);
+
+            const barrelGeo = new THREE.CylinderGeometry(0.024, 0.024, 0.32, 12);
+            barrelGeo.rotateX(Math.PI / 2);
+            const barrelMat = new THREE.MeshStandardMaterial({ color: 0x94a3b8, metalness: 0.85, roughness: 0.3 });
+            const barrelMesh = new THREE.Mesh(barrelGeo, barrelMat);
+            barrelMesh.position.z = 0.16;
+            root.add(barrelMesh);
+
+            const flightMat = new THREE.MeshStandardMaterial({ color: colorHex, roughness: 0.4 });
+            for (let i = 0; i < 4; i++) {
+                const fGeo = new THREE.PlaneGeometry(0.12, 0.14);
+                fGeo.rotateZ((i * Math.PI) / 2);
+                fGeo.translate(0, 0, 0.42);
+                root.add(new THREE.Mesh(fGeo, flightMat));
+            }
+            return { root };
+        }
+
+        /********************************************************************
+         * 6. ESTADO Y LÓGICA DEL JUEGO
+         ********************************************************************/
+        const state = {
+            phase: 1, // 1: Elegir Área, 2: Barra Golf, 3: Retícula Oscilante, 4: Vuelo
+            gameMode: '501',
+            playerMode: 'VS_BOT', // 'VS_BOT', '2P', 'SOLO'
+            activePlayer: 'P1',
+            p1Name: 'COKE',
+            p2Name: 'ORDENADOR (IA)',
+            scoreP1: 501,
+            scoreP2: 501,
+            score: 501,
+            turnStartScore: 501,
+            round: 1,
+            dartsInTurn: [],
+            spawnedDarts: [],
+            difficultyIdx: 1, // 0: Fácil, 1: Normal, 2: Pro
+
+            hoverTarget: new THREE.Vector2(0, 0.98),
+            lockedArea: new THREE.Vector2(0, 0.98),
+            currentSwayPos: new THREE.Vector2(0, 0.98),
+
+            barPos: 0.1,
+            barDir: 1,
+            sweetCenter: 0.5,
+            precisionFactor: 1.0,
+            swayClock: 0,
+            activeFlight: null
+        };
+
+        const BAR_SPEEDS = [0.85, 1.35, 2.0];
+
+        // Elementos DOM
+        const mobP1Score = document.getElementById('mob-p1-score');
+        const mobP2Score = document.getElementById('mob-p2-score');
+        const mobP1Name = document.getElementById('mob-p1-name');
+        const mobP2Name = document.getElementById('mob-p2-name');
+        const mobP1Box = document.getElementById('mob-p1-box');
+        const mobP2Box = document.getElementById('mob-p2-box');
+        const mobBarNeedle = document.getElementById('mob-bar-needle');
+        const mobSweetZone = document.getElementById('mob-sweet-zone');
+        const mobPhaseText = document.getElementById('mob-phase-text');
+        const mobScorePreview = document.getElementById('mob-score-preview');
+        const mobBtnActionLabel = document.getElementById('mob-btn-action-label');
+        const mobCheckoutBanner = document.getElementById('mob-checkout-banner');
+        const floatingContainer = document.getElementById('floating-feedback-container');
+
+        function updateMobileHUD() {
+            mobP1Name.textContent = state.p1Name;
+            mobP2Name.textContent = state.p2Name;
+
+            const s1 = state.activePlayer === 'P1' ? state.score : state.scoreP1;
+            const s2 = (state.activePlayer === 'P2' || state.activePlayer === 'BOT') ? state.score : state.scoreP2;
+            mobP1Score.textContent = s1;
+            mobP2Score.textContent = s2;
+
+            if (state.activePlayer === 'P1') {
+                mobP1Box.className = 'flex items-baseline gap-1 opacity-100 drop-shadow-[0_0_6px_#38bdf8]';
+                mobP2Box.className = 'flex items-baseline gap-1 opacity-50';
+            } else {
+                mobP1Box.className = 'flex items-baseline gap-1 opacity-50';
+                mobP2Box.className = 'flex items-baseline gap-1 opacity-100 drop-shadow-[0_0_6px_#f43f5e]';
+            }
+
+            for (let i = 1; i <= 3; i++) {
+                const dot = document.getElementById(`mob-dart-${i}`);
+                if (dot) {
+                    dot.className = i <= state.dartsInTurn.length
+                        ? 'w-2.5 h-2.5 rounded-full bg-slate-600 border border-slate-500 opacity-40'
+                        : 'w-2.5 h-2.5 rounded-full bg-amber-400 shadow-[0_0_8px_#f59e0b]';
+                }
+            }
+
+            // Banner contextual
+            if (state.score <= 40 && state.score % 2 === 0 && state.score >= 2) {
+                mobCheckoutBanner.textContent = `🎯 Cierre directo: Doble ${state.score / 2} (D${state.score / 2})`;
+            } else if (state.score === 50) {
+                mobCheckoutBanner.textContent = '🎯 Cierre directo: Bullseye (50)';
+            } else {
+                mobCheckoutBanner.textContent = `Ronda ${state.round} • Turno de ${state.activePlayer === 'P1' ? state.p1Name : state.p2Name}`;
+            }
+        }
+
+        function setMobilePhase(p) {
+            state.phase = p;
+            if (p === 1) {
+                aimGroup.visible = true;
+                swayGroup.visible = false;
+                mobPhaseText.textContent = 'Paso 1: Toca la diana';
+                mobBtnActionLabel.textContent = 'FIJAR ÁREA';
+                mobScorePreview.textContent = 'Precisión: --';
+            } else if (p === 2) {
+                aimGroup.visible = true;
+                swayGroup.visible = false;
+                randomizeSweetSpot();
+                mobPhaseText.textContent = 'Paso 2: ¡Fija precisión!';
+                mobBtnActionLabel.textContent = 'PARAR BARRA';
+            } else if (p === 3) {
+                aimGroup.visible = true;
+                swayGroup.visible = true;
+                mobPhaseText.textContent = 'Paso 3: ¡Lanza el dardo!';
+                mobBtnActionLabel.textContent = 'DISPARAR';
+            } else if (p === 4) {
+                aimGroup.visible = false;
+                swayGroup.visible = false;
+                mobPhaseText.textContent = 'Dardo en vuelo...';
+                mobBtnActionLabel.textContent = 'VOLANDO...';
+            }
+        }
+
+        function randomizeSweetSpot() {
+            state.sweetCenter = 0.38 + Math.random() * 0.24;
+            const w = [0.14, 0.10, 0.06][state.difficultyIdx];
+            mobSweetZone.style.left = `${(state.sweetCenter - w / 2) * 100}%`;
+            mobSweetZone.style.width = `${w * 100}%`;
+        }
+
+        function triggerMobileAction() {
+            if (state.phase === 1) {
+                state.lockedArea.copy(state.hoverTarget);
+                sound.playLock();
+                setMobilePhase(2);
+            } else if (state.phase === 2) {
+                const diff = Math.abs(state.barPos - state.sweetCenter);
+                state.precisionFactor = Math.max(0.05, 1.0 - (diff / 0.5));
+                const pct = Math.round(state.precisionFactor * 100);
+                mobScorePreview.textContent = `${pct}% Pulso`;
+                sound.playLock();
+                setMobilePhase(3);
+            } else if (state.phase === 3) {
+                launchDart(state.currentSwayPos.x, state.currentSwayPos.y, false);
+            }
+        }
+
+        function launchDart(tx, ty, isBot = false) {
+            setMobilePhase(4);
+            sound.playWhoosh();
+
+            const dartColor = isBot ? 0xf43f5e : 0xf59e0b;
+            const { root } = createDartMesh(dartColor);
+            scene.add(root);
+            state.spawnedDarts.push(root);
+
+            const startPos = new THREE.Vector3(camera.position.x + 0.1, camera.position.y - 0.45, camera.position.z - 0.6);
+            const endPos = new THREE.Vector3(tx, ty, BOARD_Z_SURFACE);
+
+            state.activeFlight = {
+                root,
+                startPos,
+                endPos,
+                tx, ty,
+                isBot,
+                elapsed: 0,
+                duration: 0.42,
+                arc: 0.32,
+                landed: false
+            };
+        }
+
+        function evaluateHit(x, y) {
+            const r = Math.hypot(x, y);
+            if (r <= BOARD_RADII.innerBull) return { points: 50, isDouble: true, label: '¡BULLSEYE! (50 pts)' };
+            if (r <= BOARD_RADII.outerBull) return { points: 25, isDouble: false, label: 'Bull Exterior (25 pts)' };
+            if (r > BOARD_RADII.doubleOuter) return { points: 0, isDouble: false, label: 'Fuera de Diana (0)' };
+
+            let angle = Math.atan2(x, y);
+            if (angle < 0) angle += Math.PI * 2;
+            const sliceAngle = (Math.PI * 2) / 20;
+            const idx = Math.floor((angle + sliceAngle / 2) / sliceAngle) % 20;
+            const base = DART_NUMBERS[idx];
+
+            if (r >= BOARD_RADII.tripleInner && r <= BOARD_RADII.tripleOuter) {
+                return { points: base * 3, isDouble: false, label: `¡TRIPLE ${base}! (${base * 3})` };
+            }
+            if (r >= BOARD_RADII.doubleInner && r <= BOARD_RADII.doubleOuter) {
+                return { points: base * 2, isDouble: true, label: `¡DOBLE ${base}! (${base * 2})` };
+            }
+            return { points: base, isDouble: false, label: `Simple ${base}` };
+        }
+
+        function onLanded(tx, ty, isBot = false) {
+            const hit = evaluateHit(tx, ty);
+            sound.playImpact(hit.points >= 40);
+
+            let bust = false;
+            let win = false;
+
+            if (state.gameMode === '501') {
+                const rem = state.score - hit.points;
+                if (rem < 0 || rem === 1 || (rem === 0 && !hit.isDouble)) {
+                    bust = true;
+                    state.score = state.turnStartScore;
+                } else if (rem === 0 && hit.isDouble) {
+                    state.score = 0;
+                    win = true;
+                } else {
+                    state.score = rem;
+                }
+                state.dartsInTurn.push(hit);
+            }
+
+            updateMobileHUD();
+
+            if (win) {
+                sound.playFanfare();
+                const winnerName = isBot ? state.p2Name : (state.activePlayer === 'P1' ? state.p1Name : state.p2Name);
+                showFloatingBanner(`🏆 ¡GANA ${winnerName}!`, 'Partida Completada', 'text-emerald-400');
+                setTimeout(() => resetMatch(), 3400);
+                return;
+            }
+
+            if (bust) {
+                showFloatingBanner('¡PASADO! (BUST)', 'Requiere Doble exacto', 'text-rose-400');
+                while (state.dartsInTurn.length < 3) state.dartsInTurn.push({ points: 0, label: 'Anulado' });
+                updateMobileHUD();
+            } else {
+                showFloatingBanner(hit.label, `Dardo ${state.dartsInTurn.length}/3`, hit.points >= 40 ? 'text-emerald-400' : 'text-amber-300');
+            }
+
+            if (isBot && state._nextBotThrow) {
+                state._nextBotThrow();
+                return;
+            }
+
+            setTimeout(() => {
+                if (state.dartsInTurn.length >= 3) {
+                    if (state.playerMode === 'VS_BOT') {
+                        state.scoreP1 = state.score;
+                        runMobileBotTurn();
+                        return;
+                    }
+                    if (state.playerMode === '2P') {
+                        if (state.activePlayer === 'P1') {
+                            state.scoreP1 = state.score;
+                            state.activePlayer = 'P2';
+                            state.score = state.scoreP2;
+                            state.turnStartScore = state.scoreP2;
+                            clearDarts();
+                            updateMobileHUD();
+                            showFloatingBanner(`Turno de ${state.p2Name}`, '3 dardos listos', 'text-amber-300');
+                        } else {
+                            state.scoreP2 = state.score;
+                            state.activePlayer = 'P1';
+                            state.score = state.scoreP1;
+                            state.turnStartScore = state.scoreP1;
+                            state.round++;
+                            clearDarts();
+                            updateMobileHUD();
+                            showFloatingBanner(`Turno de ${state.p1Name}`, `Ronda ${state.round}`, 'text-sky-300');
+                        }
+                        setMobilePhase(1);
+                        return;
+                    }
+                    state.round++;
+                    state.turnStartScore = state.score;
+                    clearDarts();
+                }
+                setMobilePhase(1);
+            }, 600);
+        }
+
+        function runMobileBotTurn() {
+            state.activePlayer = 'BOT';
+            clearDarts();
+            state.score = state.scoreP2;
+            state.turnStartScore = state.scoreP2;
+            updateMobileHUD();
+            mobPhaseText.textContent = `🤖 Turno de ${state.p2Name}...`;
+
+            let botDart = 0;
+            function throwBotDart() {
+                if (state.score <= 0) return;
+                let target = 20;
+                let r = (BOARD_RADII.tripleInner + BOARD_RADII.tripleOuter) / 2;
+                const rem = state.score;
+
+                if (rem <= 40 && rem % 2 === 0 && rem >= 2) {
+                    target = rem / 2;
+                    r = (BOARD_RADII.doubleInner + BOARD_RADII.doubleOuter) / 2;
+                } else if (rem === 50) {
+                    target = 25;
+                    r = 0;
+                }
+
+                let tx = 0, ty = 0;
+                if (target !== 25) {
+                    const idx = DART_NUMBERS.indexOf(target);
+                    const angle = idx * ((Math.PI * 2) / 20);
+                    tx = Math.sin(angle) * r;
+                    ty = Math.cos(angle) * r;
+                }
+                const spread = [0.18, 0.11, 0.05][state.difficultyIdx];
+                tx += (Math.random() - 0.5) * spread * 2;
+                ty += (Math.random() - 0.5) * spread * 2;
+
+                launchDart(tx, ty, true);
+                botDart++;
+            }
+
+            setTimeout(throwBotDart, 600);
+            state._nextBotThrow = () => {
+                if (state.score === 0) return;
+                if (botDart < 3 && state.score > 1) {
+                    setTimeout(throwBotDart, 700);
+                } else {
+                    setTimeout(() => {
+                        state.scoreP2 = state.score;
+                        state.activePlayer = 'P1';
+                        state.round++;
+                        clearDarts();
+                        state.score = state.scoreP1;
+                        state.turnStartScore = state.scoreP1;
+                        updateMobileHUD();
+                        setMobilePhase(1);
+                    }, 900);
+                }
+            };
+        }
+
+        function clearDarts() {
+            state.spawnedDarts.forEach(d => scene.remove(d));
+            state.spawnedDarts = [];
+            state.dartsInTurn = [];
+        }
+
+        function resetMatch() {
+            clearDarts();
+            state.round = 1;
+            state.activePlayer = 'P1';
+            state.scoreP1 = 501;
+            state.scoreP2 = 501;
+            state.score = 501;
+            state.turnStartScore = 501;
+            updateMobileHUD();
+            setMobilePhase(1);
+        }
+
+        function showFloatingBanner(title, sub = '', colorCls = 'text-amber-300') {
+            const el = document.createElement('div');
+            el.className = 'fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 text-center pointer-events-none z-50 animate-feedback';
+            el.innerHTML = `
+                <div class="hud-glass px-5 py-2.5 rounded-2xl border-white/20 shadow-2xl">
+                    <div class="font-display font-extrabold text-2xl ${colorCls} tracking-wider">${title}</div>
+                    ${sub ? `<div class="text-xs text-slate-300 mt-0.5">${sub}</div>` : ''}
+                </div>
+            `;
+            floatingContainer.appendChild(el);
+            setTimeout(() => el.remove(), 1300);
+        }
+
+        /********************************************************************
+         * 7. CONTROLES TÁCTILES Y RAYCASTING
+         ********************************************************************/
+        const raycaster = new THREE.Raycaster();
+        const pointerNDC = new THREE.Vector2();
+        const aimPlane = new THREE.Plane(new THREE.Vector3(0, 0, 1), -BOARD_Z_SURFACE);
+        const intersectPoint = new THREE.Vector3();
+
+        function handlePointerAim(clientX, clientY) {
+            if (state.phase !== 1) return;
+            pointerNDC.x = (clientX / window.innerWidth) * 2 - 1;
+            pointerNDC.y = -(clientY / window.innerHeight) * 2 + 1;
+            raycaster.setFromCamera(pointerNDC, camera);
+            if (raycaster.ray.intersectPlane(aimPlane, intersectPoint)) {
+                const maxR = BOARD_RADII.doubleOuter + 0.15;
+                const r = Math.hypot(intersectPoint.x, intersectPoint.y);
+                if (r > maxR) {
+                    intersectPoint.x = (intersectPoint.x / r) * maxR;
+                    intersectPoint.y = (intersectPoint.y / r) * maxR;
+                }
+                state.hoverTarget.set(intersectPoint.x, intersectPoint.y);
+            }
+        }
+
+        renderer.domElement.addEventListener('pointerdown', (e) => {
+            handlePointerAim(e.clientX, e.clientY);
+            triggerMobileAction();
+        });
+
+        renderer.domElement.addEventListener('pointermove', (e) => {
+            handlePointerAim(e.clientX, e.clientY);
+        });
+
+        document.getElementById('mob-btn-action').addEventListener('click', (e) => {
+            e.stopPropagation();
+            triggerMobileAction();
+        });
+
+        // Configuración y opciones
+        const modal = document.getElementById('mobile-setup-modal');
+        document.getElementById('btn-open-menu').addEventListener('click', () => {
+            modal.classList.remove('hidden');
+        });
+
+        document.querySelectorAll('.mob-opt-btn').forEach(b => {
+            b.addEventListener('click', () => {
+                document.querySelectorAll('.mob-opt-btn').forEach(x => x.className = 'mob-opt-btn py-2 px-1 rounded-xl border border-white/10 bg-slate-900/60 text-slate-300 font-semibold text-xs flex flex-col items-center gap-1');
+                b.className = 'mob-opt-btn active-opt py-2 px-1 rounded-xl border border-sky-400 bg-sky-500/25 text-sky-200 font-bold text-xs flex flex-col items-center gap-1';
+                state.playerMode = b.getAttribute('data-opp');
+                document.getElementById('mob-p2-name-wrap').style.display = state.playerMode === 'SOLO' ? 'none' : 'block';
+                document.getElementById('mob-diff-wrap').style.display = state.playerMode === 'VS_BOT' ? 'block' : 'none';
+            });
+        });
+
+        document.querySelectorAll('.mob-mode-btn').forEach(b => {
+            b.addEventListener('click', () => {
+                document.querySelectorAll('.mob-mode-btn').forEach(x => x.className = 'mob-mode-btn py-2 px-3 rounded-xl border border-white/10 bg-slate-900/60 text-slate-300 font-semibold text-xs');
+                b.className = 'mob-mode-btn py-2 px-3 rounded-xl border border-amber-400 bg-amber-500/25 text-amber-200 font-bold text-xs';
+                state.gameMode = b.getAttribute('data-mode');
+            });
+        });
+
+        document.querySelectorAll('.mob-diff-btn').forEach(b => {
+            b.addEventListener('click', () => {
+                document.querySelectorAll('.mob-diff-btn').forEach(x => x.className = 'mob-diff-btn py-1 rounded-lg border border-white/10 bg-slate-900/60 text-slate-300 text-xs');
+                b.className = 'mob-diff-btn py-1 rounded-lg border border-sky-400 bg-sky-500/25 text-sky-200 text-xs font-bold';
+                state.difficultyIdx = parseInt(b.getAttribute('data-diff'), 10);
+            });
+        });
+
+        document.getElementById('mob-btn-play-confirm').addEventListener('click', () => {
+            state.p1Name = document.getElementById('mob-input-p1').value.trim() || 'COKE';
+            state.p2Name = document.getElementById('mob-input-p2').value.trim() || (state.playerMode === 'VS_BOT' ? 'ORDENADOR (IA)' : 'JUGADOR 2');
+            modal.classList.add('hidden');
+            sound.init();
+            resetMatch();
+        });
+
+        /********************************************************************
+         * 8. BUCLE PRINCIPAL DE ANIMACIÓN
+         ********************************************************************/
+        const clock = new THREE.Clock();
+        function animate() {
+            requestAnimationFrame(animate);
+            const dt = Math.min(clock.getDelta(), 0.05);
+
+            if (state.phase === 1) {
+                aimGroup.position.x += (state.hoverTarget.x - aimGroup.position.x) * 0.4;
+                aimGroup.position.y += (state.hoverTarget.y - aimGroup.position.y) * 0.4;
+            } else if (state.phase === 2) {
+                const speed = BAR_SPEEDS[state.difficultyIdx];
+                state.barPos += state.barDir * speed * dt;
+                if (state.barPos >= 1.0) { state.barPos = 1.0; state.barDir = -1; }
+                else if (state.barPos <= 0.0) { state.barPos = 0.0; state.barDir = 1; }
+                mobBarNeedle.style.left = `${state.barPos * 100}%`;
+            } else if (state.phase === 3) {
+                state.swayClock += dt * 3.5;
+                const err = 1.0 - state.precisionFactor;
+                const r = 0.03 + err * 0.22;
+                state.currentSwayPos.set(
+                    state.lockedArea.x + Math.sin(state.swayClock * 2.1) * r,
+                    state.lockedArea.y + Math.cos(state.swayClock * 2.8) * r
+                );
+                swayGroup.position.x = state.currentSwayPos.x;
+                swayGroup.position.y = state.currentSwayPos.y;
+            }
+
+            if (state.activeFlight) {
+                const fl = state.activeFlight;
+                fl.elapsed += dt;
+                const t = Math.min(1.0, fl.elapsed / fl.duration);
+                const pos = new THREE.Vector3().lerpVectors(fl.startPos, fl.endPos, t);
+                pos.y += Math.sin(t * Math.PI) * fl.arc;
+                fl.root.position.copy(pos);
+
+                if (t >= 1.0 && !fl.landed) {
+                    fl.landed = true;
+                    fl.root.position.copy(fl.endPos);
+                    fl.root.rotation.set(-0.06, 0, 0);
+                    state.activeFlight = null;
+                    onLanded(fl.tx, fl.ty, fl.isBot);
+                }
+            }
+
+            renderer.render(scene, camera);
+        }
+
+        window.addEventListener('resize', () => {
+            const aspect = window.innerWidth / window.innerHeight;
+            camera.aspect = aspect;
+            camera.fov = aspect < 0.72 ? 54 : 44;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
+
+        window.onload = () => {
+            updateMobileHUD();
+            setMobilePhase(1);
+            animate();
+        };
+    </script>
+</body>
+</html>
