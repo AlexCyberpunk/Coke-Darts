@@ -3,36 +3,6 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Pro Darts 3D – Power (Multijugador)</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:ital,wght@0,500;0,700;1,700&family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
-    <style>
-        * { user-select: none; -webkit-user-select: none; }
-        body, html { margin:0; padding:0; width:100%; height:100%; overflow:hidden; background:#090a0f; font-family:'Inter',sans-serif; color:#f8fafc; }
-        .font-display { font-family:'Chakra Petch',sans-serif; }
-        #canvas-container { position:absolute; inset:0; width:100%; height:100%; z-index:1; cursor:crosshair; }
-        .hud-glass { display:none !important; }
-        #player-setup { position:absolute; inset:0; background:rgba(0,0,0,0.85); display:flex; flex-direction:column; align-items:center; justify-content:center; color:#fff; font-family:'Inter',sans-serif; z-index:5; }
-        #player-setup input { margin:0.5rem 0; padding:0.5rem 1rem; font-size:1rem; border:2px solid #4f46e5; border-radius:0.5rem; background:#111; color:#fff; }
-        #player-setup button { margin-top:1rem; padding:0.75rem 1.5rem; font-size:1.1rem; background:linear-gradient(90deg,#4f46e5,#6366f1); border:none; border-radius:0.5rem; color:#fff; cursor:pointer; }
-    </style>
-</head>
-<body>
-    <div id="player-setup">
-        <h2 class="text-2xl mb-4">Selecciona Jugadores</h2>
-        <input type="text" id="player1" placeholder="Nombre Jugador 1" value="COKE" />
-        <input type="text" id="player2" placeholder="Nombre Jugador 2" value="P2" />
-        <input type="text" id="player3" placeholder="Nombre Jugador 3 (opcional)" />
-        <input type="text" id="player4" placeholder="Nombre Jugador 4 (opcional)" />
-        <button onclick="startPowerMode()">¡JUGAR!</button>
-    </div>
-    <div id="canvas-container"></div>
-    <script>
-<html lang="es">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Pro Darts 3D - Unreal Style Edition</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
@@ -99,16 +69,106 @@
             z-index: 2;
             background: radial-gradient(circle at center, transparent 52%, rgba(4, 6, 12, 0.82) 100%);
         }
+        /* Pantalla de configuración de jugadores */
+        #player-setup {
+            position: fixed;
+            inset: 0;
+            background: rgba(5, 7, 14, 0.92);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 99999;
+            font-family: 'Inter', sans-serif;
+            color: #fff;
+            padding: 1rem;
+            overflow-y: auto;
+        }
+        #player-setup.hidden { display: none !important; }
+        .hud-hidden { opacity: 0; pointer-events: none; }
     </style>
 </head>
 <body>
+
+    <!-- Pantalla de Configuración de Jugadores / Modo Versus -->
+    <div id="player-setup">
+        <div class="hud-glass max-w-md w-full p-6 sm:p-7 rounded-3xl border border-white/20 text-center flex flex-col items-center gap-4 shadow-2xl">
+            <div>
+                <h2 class="font-display text-3xl sm:text-4xl font-extrabold tracking-wider text-transparent bg-clip-text bg-gradient-to-r from-amber-400 via-rose-400 to-indigo-400">
+                    🎯 PRO DARTS 3D
+                </h2>
+                <p class="text-xs sm:text-sm text-slate-300 mt-1">Configuración de Partida</p>
+            </div>
+
+            <!-- Oponente: Vs Ordenador / 2 Jugadores / Práctica -->
+            <div class="w-full text-left">
+                <label class="text-[11px] font-bold uppercase tracking-wider text-slate-400 mb-1.5 block">Modalidad de Juego</label>
+                <div class="grid grid-cols-3 gap-2" id="setup-opponent-modes">
+                    <button type="button" data-opp="VS_BOT" class="setup-opp-btn py-2.5 px-2 rounded-xl border border-sky-400 bg-sky-500/25 text-sky-200 font-bold text-xs transition flex flex-col items-center gap-1 shadow-[0_0_15px_rgba(56,189,248,0.25)]">
+                        <span class="text-lg">🤖</span>
+                        <span class="leading-tight">Vs Ordenador</span>
+                    </button>
+                    <button type="button" data-opp="2P" class="setup-opp-btn py-2.5 px-2 rounded-xl border border-white/10 bg-slate-900/60 text-slate-300 font-semibold text-xs hover:bg-white/10 transition flex flex-col items-center gap-1">
+                        <span class="text-lg">👥</span>
+                        <span class="leading-tight">2 Jugadores</span>
+                    </button>
+                    <button type="button" data-opp="SOLO" class="setup-opp-btn py-2.5 px-2 rounded-xl border border-white/10 bg-slate-900/60 text-slate-300 font-semibold text-xs hover:bg-white/10 transition flex flex-col items-center gap-1">
+                        <span class="text-lg">🎯</span>
+                        <span class="leading-tight">Práctica</span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Tipo de Juego (501 / Cricket) -->
+            <div class="w-full text-left">
+                <label class="text-[11px] font-bold uppercase tracking-wider text-slate-400 mb-1.5 block">Reglas de Competición</label>
+                <div class="grid grid-cols-2 gap-2" id="setup-game-modes">
+                    <button type="button" data-mode="501" class="setup-mode-btn py-2.5 px-3 rounded-xl border border-amber-400 bg-amber-500/25 text-amber-200 font-bold text-xs sm:text-sm transition flex items-center justify-center gap-2 shadow-[0_0_15px_rgba(245,158,11,0.25)]">
+                        <span>🎯 Torneo 501</span>
+                    </button>
+                    <button type="button" data-mode="CRICKET" class="setup-mode-btn py-2.5 px-3 rounded-xl border border-white/10 bg-slate-900/60 text-slate-300 font-semibold text-xs sm:text-sm hover:bg-white/10 transition flex items-center justify-center gap-2">
+                        <span>📋 Cricket Oficial</span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Nombres de Jugadores -->
+            <div class="w-full flex flex-col gap-2.5 text-left">
+                <div>
+                    <label class="text-[11px] font-bold uppercase tracking-wider text-slate-400 block mb-1">Tu Nombre (Jugador 1)</label>
+                    <input type="text" id="setup-player1" value="COKE" class="w-full py-2 px-3.5 rounded-xl border border-white/15 bg-slate-950/80 text-white font-medium text-sm focus:border-amber-400 focus:outline-none transition" />
+                </div>
+                <div id="setup-p2-wrapper">
+                    <label id="setup-p2-label" class="text-[11px] font-bold uppercase tracking-wider text-slate-400 block mb-1">Nombre del Ordenador / Rival</label>
+                    <input type="text" id="setup-player2" value="ORDENADOR (IA)" class="w-full py-2 px-3.5 rounded-xl border border-white/15 bg-slate-950/80 text-white font-medium text-sm focus:border-sky-400 focus:outline-none transition" />
+                </div>
+            </div>
+
+            <!-- Dificultad del Ordenador / Barra -->
+            <div class="w-full text-left" id="setup-diff-wrapper">
+                <label class="text-[11px] font-bold uppercase tracking-wider text-slate-400 mb-1.5 block">Nivel del Rival IA</label>
+                <div class="grid grid-cols-3 gap-2">
+                    <button type="button" data-diff="0" class="setup-diff-btn py-1.5 rounded-lg border border-white/10 bg-slate-900/60 text-slate-300 text-xs font-semibold">Fácil</button>
+                    <button type="button" data-diff="1" class="setup-diff-btn active-diff py-1.5 rounded-lg border border-sky-400 bg-sky-500/25 text-sky-200 text-xs font-bold">Normal</button>
+                    <button type="button" data-diff="2" class="setup-diff-btn py-1.5 rounded-lg border border-white/10 bg-slate-900/60 text-slate-300 text-xs font-semibold">Pro IA</button>
+                </div>
+            </div>
+
+            <!-- Botón Grande de Jugar -->
+            <button id="btn-start-game" type="button" onclick="startPowerMode()" class="w-full py-3.5 px-6 rounded-2xl bg-gradient-to-r from-amber-500 via-rose-500 to-indigo-600 hover:from-amber-400 hover:via-rose-400 hover:to-indigo-500 text-white font-display font-extrabold text-lg tracking-wider shadow-lg shadow-rose-500/30 active:scale-95 transition-all cursor-pointer mt-1 flex items-center justify-center gap-2">
+                <span>🎯</span>
+                <span>¡JUGAR PARTIDA!</span>
+            </button>
+        </div>
+    </div>
 
     <!-- Contenedor 3D WebGL -->
     <div id="canvas-container"></div>
     <div class="vignette-overlay"></div>
 
     <!-- HUD Principal -->
-    <div class="relative z-10 pointer-events-none w-full h-full flex flex-col justify-between p-3 sm:p-6">
+    <div id="hud-container" class="hud-hidden relative z-10 pointer-events-none w-full h-full flex flex-col justify-between p-3 sm:p-6 transition-opacity duration-300">
 
         <!-- Fila Superior: Marcador + Fases + Ajustes -->
         <div class="flex flex-wrap items-start justify-between gap-3 w-full">
@@ -132,6 +192,19 @@
                         <div class="text-[11px] uppercase tracking-wider text-slate-400 font-semibold">Turno Actual</div>
                         <div id="turn-total" class="font-display text-2xl sm:text-3xl font-bold text-emerald-400">+0</div>
                         <div id="checkout-hint" class="text-[11px] text-amber-300/90 font-medium mt-0.5 h-4"></div>
+                    </div>
+                </div>
+
+                <!-- Marcador Comparativo 501 (Tú vs Ordenador / Jugador 2) -->
+                <div id="versus-score-block" class="flex items-center justify-between border-t border-white/10 pt-2.5 mt-2.5 text-xs">
+                    <div id="tag-p1" class="flex flex-col text-left px-2 py-1 rounded-lg bg-sky-500/25 border border-sky-400">
+                        <span id="name-p1-disp" class="text-[10px] font-bold uppercase text-sky-300">COKE (TÚ)</span>
+                        <span id="score-p1-disp" class="font-display text-lg font-bold text-white">501</span>
+                    </div>
+                    <div class="text-[10px] uppercase font-bold text-slate-400 px-1">VS</div>
+                    <div id="tag-p2" class="flex flex-col text-right px-2 py-1 rounded-lg bg-slate-900/60 border border-white/10 opacity-70">
+                        <span id="name-p2-disp" class="text-[10px] font-bold uppercase text-rose-400">ORDENADOR</span>
+                        <span id="score-p2-disp" class="font-display text-lg font-bold text-slate-300">501</span>
                     </div>
                 </div>
 
@@ -239,11 +312,14 @@
                     </button>
                 </div>
                 <div class="flex items-center gap-1.5 pt-1 border-t border-white/10">
+                    <button id="btn-open-setup" class="flex-1 text-xs font-semibold bg-indigo-500/20 hover:bg-indigo-500/30 border border-indigo-500/40 text-indigo-200 rounded-lg py-1.5 px-2 transition">
+                        ⚙️ Opciones
+                    </button>
                     <button id="btn-cancel-aim" class="hidden flex-1 text-xs font-semibold bg-rose-500/20 hover:bg-rose-500/30 border border-rose-500/40 text-rose-200 rounded-lg py-1.5 px-2 transition">
-                        Re-apuntar (Esc)
+                        Re-apuntar
                     </button>
                     <button id="btn-reset" class="flex-1 text-xs font-semibold bg-white/10 hover:bg-white/20 border border-white/15 text-slate-200 rounded-lg py-1.5 px-2 transition">
-                        Nueva Partida
+                        Reiniciar
                     </button>
                 </div>
             </div>
@@ -1043,12 +1119,20 @@
         const state = {
             phase: 1,               // 1: Elegir Área, 2: Barra Golf, 3: Punto Oscilante, 4: Vuelo del Dardo
             gameMode: '501',        // '501', 'CRICKET', 'PRACTICE'
-            difficultyIdx: 0,
+            difficultyIdx: 1,       // 0: Fácil, 1: Normal, 2: Pro
             score: 501,
             turnStartScore: 501,
             round: 1,
             dartsInTurn: [],        // Resultados de los 3 dardos actuales
             spawnedDarts: [],       // Objetos 3D clavados en la diana
+
+            // Modalidad de Jugadores & Oponentes
+            playerMode: 'VS_BOT',   // 'VS_BOT', '2P', 'SOLO'
+            activePlayer: 'P1',     // 'P1' o 'BOT' o 'P2'
+            p1Name: 'COKE',
+            p2Name: 'ORDENADOR (IA)',
+            scoreP1: 501,
+            scoreP2: 501,
 
             // Estado específico del Modo CRICKET
             cricketVsBot: true,
@@ -1224,7 +1308,7 @@
             return null;
         }
 
-        // Calcula coordenadas 3D en la diana para que el Bot IA apunte al objetivo de Cricket que más le convenga
+        // Calcula coordenadas 3D en la diana para que el Bot IA apunte al objetivo que más le convenga
         function getSectorCoordinates3D(targetNumber, ringType = 'TRIPLE') {
             if (targetNumber === 25) {
                 return new THREE.Vector2(0, 0);
@@ -1232,11 +1316,15 @@
             const idx = DART_NUMBERS.indexOf(targetNumber);
             if (idx === -1) return new THREE.Vector2(0, 0);
             const sliceAngle = (Math.PI * 2) / 20;
-            // En nuestra diana 3D, el sector 20 (idx 0) está en (0, +R) y avanza en sentido horario
             const angleFromTop = idx * sliceAngle;
-            const radius = ringType === 'TRIPLE'
-                ? (BOARD_RADII.tripleInner + BOARD_RADII.tripleOuter) / 2
-                : 0.65;
+            let radius = 0.65;
+            if (ringType === 'TRIPLE') {
+                radius = (BOARD_RADII.tripleInner + BOARD_RADII.tripleOuter) / 2;
+            } else if (ringType === 'DOUBLE') {
+                radius = (BOARD_RADII.doubleInner + BOARD_RADII.doubleOuter) / 2;
+            } else if (ringType === 'BULL') {
+                radius = 0;
+            }
             return new THREE.Vector2(
                 Math.sin(angleFromTop) * radius,
                 Math.cos(angleFromTop) * radius
@@ -1259,13 +1347,11 @@
                 // IA elige el número más alto que aún no ha cerrado, o donde pueda anotar puntos si va perdiendo
                 let chosenTarget = CRICKET_TARGETS.find(t => state.cricketMarksBot[t] < 3);
                 if (!chosenTarget) {
-                    // Ya cerró todos, pero aún va por debajo en puntos: busca un número abierto por el jugador
                     chosenTarget = CRICKET_TARGETS.find(t => state.cricketMarksP1[t] < 3) || 25;
                 }
 
                 const idealPos = getSectorCoordinates3D(chosenTarget, chosenTarget === 25 ? 'BULL' : 'TRIPLE');
-                // Dispersión según dificultad seleccionada
-                const botSpread = [0.22, 0.14, 0.08][state.difficultyIdx];
+                const botSpread = [0.20, 0.12, 0.06][state.difficultyIdx];
                 const tx = idealPos.x + (Math.random() - 0.5) * botSpread * 2;
                 const ty = idealPos.y + (Math.random() - 0.5) * botSpread * 2;
 
@@ -1285,6 +1371,85 @@
                         state.round++;
                         clearDartsFromBoard();
                         state.dartsInTurn = [];
+                        updateHUD();
+                        setPhase(1);
+                    }, 950);
+                }
+            };
+        }
+
+        // Turno del Bot en Modo Torneo 501
+        function runBot501Turn() {
+            if (state.gameMode !== '501' || state.playerMode !== 'VS_BOT') return;
+            state.isBotTurn = true;
+            state.activePlayer = 'BOT';
+            clearDartsFromBoard();
+            state.dartsInTurn = [];
+            state.turnStartScore = state.scoreP2;
+            state.score = state.scoreP2;
+            updateHUD();
+            elPhaseInstruction.textContent = `🤖 Turno de ${state.p2Name}: Calculando lanzamiento...`;
+
+            let botDartIndex = 0;
+
+            function throwNextBot501Dart() {
+                if (state.gameMode !== '501' || !state.isBotTurn || state.score <= 0) return;
+
+                let chosenTarget = 20;
+                let chosenRing = 'TRIPLE';
+                const rem = state.score;
+
+                if (rem <= 40 && rem % 2 === 0 && rem >= 2) {
+                    chosenTarget = rem / 2;
+                    chosenRing = 'DOUBLE';
+                } else if (rem === 50) {
+                    chosenTarget = 25;
+                    chosenRing = 'BULL';
+                } else if (rem > 40 && rem <= 170) {
+                    if (rem > 60) {
+                        chosenTarget = 20;
+                        chosenRing = 'TRIPLE';
+                    } else {
+                        chosenTarget = rem - 32;
+                        if (chosenTarget <= 0 || chosenTarget > 20) chosenTarget = 20;
+                        chosenRing = 'SINGLE';
+                    }
+                } else {
+                    chosenTarget = 20;
+                    chosenRing = 'TRIPLE';
+                }
+
+                const idealPos = getSectorCoordinates3D(chosenTarget, chosenRing);
+                const botSpread = [0.18, 0.11, 0.05][state.difficultyIdx];
+                const tx = idealPos.x + (Math.random() - 0.5) * botSpread * 2;
+                const ty = idealPos.y + (Math.random() - 0.5) * botSpread * 2;
+
+                launchDart3D(tx, ty, true);
+                botDartIndex++;
+            }
+
+            setTimeout(throwNextBot501Dart, 600);
+
+            state._nextBotThrow = () => {
+                if (state.score === 0) {
+                    sound.playLockPhase(200);
+                    showFloatingFeedback(`🤖 ¡HA GANADO ${state.p2Name}!`, `Partida 501 finalizada en ${state.round} rondas`, 'text-rose-400');
+                    setTimeout(() => resetMatch(), 3500);
+                    return;
+                }
+
+                if (botDartIndex < 3 && state.score > 1) {
+                    setTimeout(throwNextBot501Dart, 750);
+                } else {
+                    setTimeout(() => {
+                        state.scoreP2 = state.score;
+                        state.isBotTurn = false;
+                        state.activePlayer = 'P1';
+                        state.round++;
+                        clearDartsFromBoard();
+                        state.dartsInTurn = [];
+                        state.score = state.scoreP1;
+                        state.turnStartScore = state.scoreP1;
                         updateHUD();
                         setPhase(1);
                     }, 950);
@@ -1579,38 +1744,77 @@
 
             if (wonMatch) {
                 sound.playVictoryFanfare();
-                const titleMsg = state.gameMode === 'CRICKET' ? '🏆 ¡CRICKET COMPLETADO!' : '🎯 ¡JUEGO 501 GANADO!';
+                const winnerName = isBot ? state.p2Name : (state.activePlayer === 'P1' ? state.p1Name : state.p2Name);
+                const titleMsg = state.gameMode === 'CRICKET' ? `🏆 ¡VICTORIA DE ${winnerName.toUpperCase()}!` : `🎯 ¡${winnerName.toUpperCase()} GANA EL 501!`;
                 showFloatingFeedback(titleMsg, winnerLabel, 'text-emerald-400');
-                setTimeout(() => resetMatch(), 2800);
+                setTimeout(() => resetMatch(), 3400);
                 return;
             }
 
             if (state.gameMode !== 'CRICKET') {
                 if (bust) {
-                    showFloatingFeedback('¡PASADO! (BUST)', 'Se requiere cerrar con Doble exacto • Vuelves a ' + state.turnStartScore, 'text-rose-400');
+                    const thrower = isBot ? `🤖 ${state.p2Name}: ` : '';
+                    showFloatingFeedback(`${thrower}¡PASADO! (BUST)`, 'Se requiere cerrar con Doble exacto • Vuelve a ' + state.turnStartScore, 'text-rose-400');
                     while (state.dartsInTurn.length < 3) {
                         state.dartsInTurn.push({ points: 0, short: 'BUST', label: 'Anulado' });
                     }
                     updateHUD();
                 } else {
                     const color = result.points >= 40 ? 'text-emerald-400' : (result.points > 0 ? 'text-amber-300' : 'text-slate-400');
-                    showFloatingFeedback(result.label, `Dardo ${state.dartsInTurn.length} de 3`, color);
+                    const thrower = isBot ? `🤖 ${state.p2Name}: ` : '';
+                    showFloatingFeedback(`${thrower}${result.label}`, `Dardo ${state.dartsInTurn.length} de 3`, color);
                 }
             }
 
-            // Si es turno del Bot en Cricket, encadenar su siguiente lanzamiento
+            // Si es turno del Bot en Cricket o 501, encadenar su siguiente lanzamiento
             if (isBot && state._nextBotThrow) {
                 state._nextBotThrow();
                 return;
             }
 
-            // Volver a Fase 1 tras una breve pausa viendo el dardo clavado (o dar paso al Bot en Cricket)
+            // Volver a Fase 1 tras una breve pausa (o dar paso al siguiente turno)
             setTimeout(() => {
                 if (state.dartsInTurn.length >= 3) {
+                    // Turno en Cricket
                     if (state.gameMode === 'CRICKET' && state.cricketVsBot) {
                         runBotCricketTurn();
                         return;
                     }
+
+                    // Turno en 501 Vs Bot
+                    if (state.gameMode === '501' && state.playerMode === 'VS_BOT') {
+                        state.scoreP1 = state.score;
+                        runBot501Turn();
+                        return;
+                    }
+
+                    // Turno en 501 2 Jugadores
+                    if (state.gameMode === '501' && state.playerMode === '2P') {
+                        if (state.activePlayer === 'P1') {
+                            state.scoreP1 = state.score;
+                            state.activePlayer = 'P2';
+                            state.score = state.scoreP2;
+                            state.turnStartScore = state.scoreP2;
+                            clearDartsFromBoard();
+                            state.dartsInTurn = [];
+                            updateHUD();
+                            showFloatingFeedback(`Turno de ${state.p2Name}`, '3 dardos listos', 'text-amber-300');
+                        } else {
+                            state.scoreP2 = state.score;
+                            state.activePlayer = 'P1';
+                            state.score = state.scoreP1;
+                            state.turnStartScore = state.scoreP1;
+                            state.round++;
+                            clearDartsFromBoard();
+                            state.dartsInTurn = [];
+                            updateHUD();
+                            showFloatingFeedback(`Turno de ${state.p1Name}`, `Ronda ${state.round}`, 'text-sky-300');
+                        }
+                        setPhase(1);
+                        return;
+                    }
+
+                    // Modo solitario o práctica libre
                     state.round++;
                     state.turnStartScore = state.score;
                 }
@@ -1634,14 +1838,17 @@
             clearDartsFromBoard();
             state.round = 1;
             state.isBotTurn = false;
+            state.activePlayer = 'P1';
             state.dartsInTurn = [];
             state.cricketMarksP1 = createEmptyCricketMap();
             state.cricketMarksBot = createEmptyCricketMap();
             state.cricketScoreP1 = 0;
             state.cricketScoreBot = 0;
+            state.scoreP1 = 501;
+            state.scoreP2 = 501;
             state.score = state.gameMode === '501' ? 501 : 0;
             state.turnStartScore = state.score;
-            elPrecisionReadout.textContent = 'Precisión barra: --';
+            if (elPrecisionReadout) elPrecisionReadout.textContent = 'Precisión barra: --';
             updateModeButtonsUI();
             updateHUD();
             setPhase(1);
@@ -1681,10 +1888,13 @@
             elMainScore.textContent = state.score;
             elRoundCounter.textContent = `Ronda ${state.round}`;
 
+            const activeName = state.activePlayer === 'P1' ? state.p1Name : state.p2Name;
             if (state.gameMode === '501') {
-                elModeBadge.textContent = 'TORNEO 501';
+                elModeBadge.textContent = state.playerMode === 'VS_BOT'
+                    ? `501 VS BOT (${activeName})`
+                    : (state.playerMode === '2P' ? `501 (${activeName})` : 'TORNEO 501');
             } else if (state.gameMode === 'CRICKET') {
-                elModeBadge.textContent = 'CRICKET OFICIAL';
+                elModeBadge.textContent = state.cricketVsBot ? 'CRICKET VS BOT' : 'CRICKET OFICIAL';
             } else {
                 elModeBadge.textContent = 'PRÁCTICA LIBRE';
             }
@@ -1692,6 +1902,35 @@
             const turnSum = state.dartsInTurn.reduce((acc, d) => acc + d.points, 0);
             elTurnTotal.textContent = state.gameMode === '501' ? `-${turnSum}` : `+${turnSum}`;
             elCheckoutHint.textContent = getCheckoutSuggestion(state.score);
+
+            // Marcador Versus en 501
+            const vsBlock = document.getElementById('versus-score-block');
+            if (vsBlock) {
+                if (state.gameMode === '501' && state.playerMode !== 'SOLO') {
+                    vsBlock.classList.remove('hidden');
+                    const nameP1 = document.getElementById('name-p1-disp');
+                    const scoreP1 = document.getElementById('score-p1-disp');
+                    const nameP2 = document.getElementById('name-p2-disp');
+                    const scoreP2 = document.getElementById('score-p2-disp');
+                    const tagP1 = document.getElementById('tag-p1');
+                    const tagP2 = document.getElementById('tag-p2');
+
+                    if (nameP1) nameP1.textContent = state.p1Name;
+                    if (scoreP1) scoreP1.textContent = state.activePlayer === 'P1' ? state.score : state.scoreP1;
+                    if (nameP2) nameP2.textContent = state.p2Name;
+                    if (scoreP2) scoreP2.textContent = (state.activePlayer === 'P2' || state.activePlayer === 'BOT') ? state.score : state.scoreP2;
+
+                    if (state.activePlayer === 'P1') {
+                        tagP1.className = 'flex flex-col text-left px-2 py-1 rounded-lg bg-sky-500/30 border border-sky-400 shadow-sm';
+                        tagP2.className = 'flex flex-col text-right px-2 py-1 rounded-lg bg-slate-900/60 border border-white/10 opacity-60';
+                    } else {
+                        tagP1.className = 'flex flex-col text-left px-2 py-1 rounded-lg bg-slate-900/60 border border-white/10 opacity-60';
+                        tagP2.className = 'flex flex-col text-right px-2 py-1 rounded-lg bg-rose-500/30 border border-rose-400 shadow-sm';
+                    }
+                } else {
+                    vsBlock.classList.add('hidden');
+                }
+            }
 
             for (let i = 0; i < 3; i++) {
                 const slot = elDartSlots[i];
@@ -1941,7 +2180,144 @@
             renderer.render(scene, camera);
         }
 
+        // Control y configuración del Modal de Jugadores / Modo de Juego
+        function openSetupModal() {
+            const setupModal = document.getElementById('player-setup');
+            if (setupModal) {
+                setupModal.classList.remove('hidden');
+            }
+        }
+        window.openSetupModal = openSetupModal;
+
+        function initSetupModalControls() {
+            // Selección de Oponentes: Vs Ordenador, 2 Jugadores, Práctica
+            const oppButtons = document.querySelectorAll('.setup-opp-btn');
+            const p2Wrapper = document.getElementById('setup-p2-wrapper');
+            const p2Label = document.getElementById('setup-p2-label');
+            const p2Input = document.getElementById('setup-player2');
+            const diffWrapper = document.getElementById('setup-diff-wrapper');
+
+            oppButtons.forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    const opp = btn.getAttribute('data-opp');
+                    state.playerMode = opp;
+
+                    oppButtons.forEach(b => {
+                        b.className = 'setup-opp-btn py-2.5 px-2 rounded-xl border border-white/10 bg-slate-900/60 text-slate-300 font-semibold text-xs hover:bg-white/10 transition flex flex-col items-center gap-1';
+                    });
+                    btn.className = 'setup-opp-btn py-2.5 px-2 rounded-xl border border-sky-400 bg-sky-500/25 text-sky-200 font-bold text-xs transition flex flex-col items-center gap-1 shadow-[0_0_15px_rgba(56,189,248,0.25)]';
+
+                    if (opp === 'VS_BOT') {
+                        state.cricketVsBot = true;
+                        if (p2Wrapper) p2Wrapper.style.display = 'block';
+                        if (p2Label) p2Label.textContent = 'Nombre del Ordenador (IA)';
+                        if (p2Input) p2Input.value = 'ORDENADOR (IA)';
+                        if (diffWrapper) diffWrapper.style.display = 'block';
+                    } else if (opp === '2P') {
+                        state.cricketVsBot = false;
+                        if (p2Wrapper) p2Wrapper.style.display = 'block';
+                        if (p2Label) p2Label.textContent = 'Nombre Jugador 2';
+                        if (p2Input && p2Input.value.includes('ORDENADOR')) p2Input.value = 'JUGADOR 2';
+                        if (diffWrapper) diffWrapper.style.display = 'none';
+                    } else { // SOLO
+                        state.cricketVsBot = false;
+                        if (p2Wrapper) p2Wrapper.style.display = 'none';
+                        if (diffWrapper) diffWrapper.style.display = 'none';
+                    }
+                });
+            });
+
+            // Selección de Reglas: 501 Torneo vs Cricket
+            const modeButtons = document.querySelectorAll('.setup-mode-btn');
+            modeButtons.forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    const m = btn.getAttribute('data-mode');
+                    state.gameMode = m;
+
+                    modeButtons.forEach(b => {
+                        b.className = 'setup-mode-btn py-2.5 px-3 rounded-xl border border-white/10 bg-slate-900/60 text-slate-300 font-semibold text-xs sm:text-sm hover:bg-white/10 transition flex items-center justify-center gap-2';
+                    });
+                    btn.className = 'setup-mode-btn py-2.5 px-3 rounded-xl border border-amber-400 bg-amber-500/25 text-amber-200 font-bold text-xs sm:text-sm transition flex items-center justify-center gap-2 shadow-[0_0_15px_rgba(245,158,11,0.25)]';
+                });
+            });
+
+            // Selección de Dificultad
+            const diffButtons = document.querySelectorAll('.setup-diff-btn');
+            diffButtons.forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    const d = parseInt(btn.getAttribute('data-diff'), 10);
+                    state.difficultyIdx = d;
+
+                    diffButtons.forEach(b => {
+                        b.className = 'setup-diff-btn py-1.5 rounded-lg border border-white/10 bg-slate-900/60 text-slate-300 text-xs font-semibold';
+                    });
+                    btn.className = 'setup-diff-btn active-diff py-1.5 rounded-lg border border-sky-400 bg-sky-500/25 text-sky-200 text-xs font-bold';
+
+                    const elDiffBtn = document.getElementById('btn-difficulty');
+                    if (elDiffBtn) elDiffBtn.textContent = DIFFICULTIES[d].name;
+                });
+            });
+
+            // Botón ¡JUGAR! con soporte click y touch para respuesta instantánea en móvil
+            const btnPlay = document.getElementById('btn-start-game');
+            if (btnPlay) {
+                const handleStart = (e) => {
+                    if (e) {
+                        e.preventDefault();
+                        e.stopPropagation();
+                    }
+                    startPowerMode();
+                };
+                btnPlay.addEventListener('click', handleStart);
+                btnPlay.addEventListener('touchend', handleStart);
+            }
+
+            // Botón de reabrir opciones en el HUD
+            const btnOpenSetupEl = document.getElementById('btn-open-setup');
+            if (btnOpenSetupEl) {
+                btnOpenSetupEl.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    openSetupModal();
+                });
+            }
+        }
+
+        // Función que lanza el juego cuando el usuario hace clic en ¡JUGAR!
+        function startPowerMode() {
+            // Leer nombres
+            const p1Input = document.getElementById('setup-player1');
+            const p2Input = document.getElementById('setup-player2');
+            state.p1Name = (p1Input && p1Input.value.trim()) || 'COKE';
+            state.p2Name = (p2Input && p2Input.value.trim()) || (state.playerMode === 'VS_BOT' ? 'ORDENADOR (IA)' : 'JUGADOR 2');
+
+            // Ocultar la pantalla de configuración
+            const modal = document.getElementById('player-setup');
+            if (modal) modal.classList.add('hidden');
+
+            // Mostrar el HUD
+            const hudEl = document.getElementById('hud-container');
+            if (hudEl) {
+                hudEl.classList.remove('hud-hidden');
+            }
+
+            // Iniciar audio
+            sound.init();
+
+            // Iniciar la partida
+            resetMatch();
+        }
+
+        // Hacer la función accesible globalmente para el onclick
+        window.startPowerMode = startPowerMode;
+
         window.onload = () => {
+            initSetupModalControls();
             updateHUD();
             setPhase(1);
             animate();
