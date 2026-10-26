@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Pro Darts 3D – Selección de Modo</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body, html {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            background: linear-gradient(135deg, #0a0a0a, #1a1a2e);
+            font-family: 'Inter', sans-serif;
+            color: #f8fafc;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .card {
+            background: rgba(20, 20, 30, 0.85);
+            backdrop-filter: blur(8px);
+            border-radius: 1rem;
+            padding: 2rem;
+            text-align: center;
+            box-shadow: 0 0 30px rgba(0,0,0,0.6);
+            animation: fadeIn 0.8s ease-out;
+        }
+        .btn {
+            display: inline-block;
+            margin: 0.5rem;
+            padding: 0.75rem 1.5rem;
+            font-size: 1.125rem;
+            font-weight: 600;
+            border-radius: 0.5rem;
+            background: linear-gradient(90deg, #4f46e5, #6366f1);
+            color: #fff;
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+        .btn:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 8px 20px rgba(79,70,229,0.4);
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+    </style>
+</head>
+<body>
+    <div class="card">
+        <h1 class="text-4xl font-bold mb-4">Pro Darts 3D</h1>
+        <p class="mb-6">Elige tu estilo de juego</p>
+        <button class="btn" onclick="location.href='classic.html'">Clásica (2D)</button>
+        <button class="btn" onclick="location.href='pro_darts_3d_unreal_style_webgl.html'">Power (3D)</button>
+    </div>
+</body>
+</html>
