@@ -304,17 +304,30 @@
                 <a href="classic.html" class="text-emerald-400 hover:text-emerald-200 font-bold transition">🕹️ Clásico 2D</a>
                 <span class="text-amber-800">•</span>
                 <a href="pro_darts_3d_unreal_style_webgl.html" class="text-amber-400/80 hover:text-amber-200 transition">🖥️ Versión PC</a>
+                <!-- Volume control for background music -->
+                <div class="flex items-center mt-2 text-xs text-amber-200">
+                  <span class="mr-1">🔊</span>
+                  <input id="mob-volume-slider" type="range" min="0" max="1" step="0.05" value="0.2" class="w-24" />
+                </div>
             </div>
         </div>
     </div>
 
     <!-- Script del Motor de Juego 3D Móvil -->
     <script>
-        // Background music (looped, low volume)
-        const bgMusic = new Audio('https://cdn.jsdelivr.net/gh/lemontree123/free-audio/background.mp3');
+        // Background music (looped, low volume) using local file
+        const bgMusic = new Audio('Harbor_Bound_low.mp3'); // placed in project root
         bgMusic.loop = true;
-        bgMusic.volume = 0.15;
-        bgMusic.play().catch(() => {}); // handle autoplay restrictions
+        bgMusic.volume = 0.2; // default volume
+        // Autoplay may be blocked; try to play after user interaction later
+        function tryPlayMusic() {
+          bgMusic.play().catch(() => {});
+        }
+        // Attempt to play when first user interaction occurs (e.g., start button)
+        document.addEventListener('click', function initMusic(){
+          tryPlayMusic();
+          document.removeEventListener('click', initMusic);
+        });
         // Preload vocal effect clips
         const wowAudio = new Audio('https://cdn.jsdelivr.net/gh/lemontree123/free-audio/wow.mp3');
         const ahhAudio = new Audio('https://cdn.jsdelivr.net/gh/lemontree123/free-audio/ahh.mp3');
@@ -360,6 +373,9 @@
             playWow() { if (typeof wowAudio !== 'undefined') wowAudio.currentTime = 0; wowAudio.play().catch(() => {}); }
             playAhh() { if (typeof ahhAudio !== 'undefined') ahhAudio.currentTime = 0; ahhAudio.play().catch(() => {}); }
             playHuy() { if (typeof huyAudio !== 'undefined') huyAudio.currentTime = 0; huyAudio.play().catch(() => {}); }
+            // Volume control handler
+            setVolume(vol) { bgMusic.volume = vol; }
+
         }
             constructor() { this.ctx = null; }
             init() {
@@ -415,6 +431,14 @@
             }
         }
         const sound = new MobileSoundEngine();
+        // Hook up volume slider
+        const volumeSlider = document.getElementById('mob-volume-slider');
+        if (volumeSlider) {
+          volumeSlider.addEventListener('input', (e) => {
+            const vol = parseFloat(e.target.value);
+            sound.setVolume(vol);
+          });
+        }
 
         /********************************************************************
          * 2. REGLAMENTO OFICIAL DE LA DIANA Y ESCALA 3D (REGLAS WDF / PDC)
