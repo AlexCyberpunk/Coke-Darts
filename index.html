@@ -3,80 +3,169 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Pro Darts 3D – Selección de Modo</title>
+    <title>Coke's Darts – Club de Dardos Tradicional</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700;900&family=Inter:wght@400;500;600;700&family=Press+Start+2P&display=swap" rel="stylesheet">
     <style>
         body, html {
             margin: 0;
             padding: 0;
             width: 100%;
             height: 100%;
-            overflow: hidden;
-            background: linear-gradient(135deg, #0a0a0a, #1a1a2e);
+            overflow-x: hidden;
+            background: radial-gradient(circle at center, #26170d 0%, #150d07 55%, #080402 100%);
             font-family: 'Inter', sans-serif;
-            color: #f8fafc;
+            color: #f5eedc;
             display: flex;
             align-items: center;
             justify-content: center;
         }
-        .card {
-            background: rgba(20, 20, 30, 0.85);
-            backdrop-filter: blur(8px);
+
+        .font-pub {
+            font-family: 'Cinzel', serif;
+        }
+
+        .pub-wood-card {
+            background: linear-gradient(175deg, rgba(38, 25, 17, 0.94) 0%, rgba(22, 14, 9, 0.96) 100%);
+            border: 2px solid rgba(217, 119, 6, 0.45);
+            box-shadow: 0 20px 50px rgba(0, 0, 0, 0.8), inset 0 1px 1px rgba(254, 243, 199, 0.15);
+            border-radius: 1.25rem;
+            position: relative;
+        }
+
+        .pub-wood-card::before {
+            content: '';
+            position: absolute;
+            inset: 4px;
+            border: 1px solid rgba(180, 83, 9, 0.25);
             border-radius: 1rem;
-            padding: 2rem;
-            text-align: center;
-            box-shadow: 0 0 30px rgba(0,0,0,0.6);
-            animation: fadeIn 0.8s ease-out;
+            pointer-events: none;
         }
-        .btn {
-            display: inline-block;
-            margin: 0.5rem;
-            padding: 0.75rem 1.5rem;
-            font-size: 1.125rem;
-            font-weight: 600;
-            border-radius: 0.5rem;
-            background: linear-gradient(90deg, #4f46e5, #6366f1);
-            color: #fff;
-            cursor: pointer;
-            transition: transform 0.2s, box-shadow 0.2s;
+
+        /* Botón Fieltro Verde Tradicional */
+        .btn-felt-green {
+            background: linear-gradient(135deg, #1c4d32 0%, #113622 100%);
+            border: 1px solid #2f7a50;
+            color: #f7fee7;
+            box-shadow: 0 4px 14px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.15);
         }
-        .btn:hover {
-            transform: translateY(-3px);
-            box-shadow: 0 8px 20px rgba(79,70,229,0.4);
+        .btn-felt-green:hover {
+            background: linear-gradient(135deg, #23603e 0%, #16422a 100%);
+            border-color: #38a169;
+            transform: translateY(-2px);
         }
+
+        /* Botón Cuero y Madera Noble Ocre */
+        .btn-wood-ochre {
+            background: linear-gradient(135deg, #5c351b 0%, #3d2211 100%);
+            border: 1px solid #b45309;
+            color: #fef3c7;
+            box-shadow: 0 4px 14px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.15);
+        }
+        .btn-wood-ochre:hover {
+            background: linear-gradient(135deg, #6e3f20 0%, #4a2914 100%);
+            border-color: #d97706;
+            transform: translateY(-2px);
+        }
+
+        /* Botón Arcade Retro 2D Clásico */
+        .btn-classic-retro {
+            background: linear-gradient(135deg, #1f2c22 0%, #141f17 100%);
+            border: 1px solid #d97706;
+            color: #fbbf24;
+            box-shadow: 0 4px 14px rgba(0,0,0,0.5), inset 0 1px 0 rgba(251,191,36,0.2);
+        }
+        .btn-classic-retro:hover {
+            background: linear-gradient(135deg, #2a3d2e 0%, #1a291e 100%);
+            border-color: #f59e0b;
+            transform: translateY(-2px);
+        }
+
         @keyframes fadeIn {
-            from { opacity: 0; transform: translateY(20px); }
+            from { opacity: 0; transform: translateY(15px); }
             to { opacity: 1; transform: translateY(0); }
         }
     </style>
 </head>
-<body>
-    <div class="card max-w-md w-full mx-4">
-        <h1 class="text-4xl font-black mb-2 tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-amber-400 via-rose-400 to-indigo-400">Pro Darts 3D</h1>
-        <p class="text-slate-300 text-sm mb-6">Elige tu modo y dispositivo de juego</p>
+<body class="p-4">
 
-        <!-- Botón Especial Móvil -->
-        <a href="mobile.html" class="block w-full py-3.5 px-4 mb-3 rounded-xl bg-gradient-to-r from-emerald-500 via-teal-600 to-cyan-600 text-white font-bold text-base shadow-lg shadow-emerald-500/30 hover:scale-[1.02] active:scale-95 transition-all flex items-center justify-center gap-2">
-            <span>📱</span>
-            <span>Versión Móvil 3D (Táctil)</span>
-            <span class="text-[10px] uppercase font-black bg-white/20 px-2 py-0.5 rounded-full ml-1">Nuevo</span>
-        </a>
-
-        <!-- Botón Power 3D PC -->
-        <a href="pro_darts_3d_unreal_style_webgl.html" class="block w-full py-3 px-4 mb-3 rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600 text-white font-semibold text-base shadow-md hover:scale-[1.02] active:scale-95 transition-all flex items-center justify-center gap-2">
-            <span>🖥️</span>
-            <span>Power 3D (PC / Escritorio)</span>
-        </a>
-
-        <!-- Botón Clásica 2D -->
-        <a href="classic.html" class="block w-full py-2.5 px-4 rounded-xl bg-slate-800/80 hover:bg-slate-700/80 text-slate-300 font-medium text-sm transition-all flex items-center justify-center gap-2 border border-white/10">
-            <span>🎯</span>
-            <span>Clásica (2D)</span>
-        </a>
-
-        <div id="mob-detector-hint" class="hidden mt-4 pt-3 border-t border-white/10 text-xs text-emerald-400 font-medium">
-            💡 Hemos detectado un dispositivo móvil. Te sugerimos la <b>Versión Móvil 3D</b> para jugar sin menús sobre la diana.
+    <div class="pub-wood-card max-w-lg w-full p-6 sm:p-8 text-center" style="animation: fadeIn 0.7s ease-out;">
+        
+        <!-- Escudo / Icono Pub -->
+        <div class="flex justify-center mb-3">
+            <div class="w-16 h-16 rounded-full bg-amber-950/70 border-2 border-amber-600/50 flex items-center justify-center text-3xl shadow-inner shadow-black">
+                🎯
+            </div>
         </div>
+
+        <h1 class="font-pub text-3xl sm:text-4xl font-extrabold tracking-wider text-amber-200 drop-shadow-[0_2px_4px_rgba(0,0,0,0.8)]">
+            COKE'S DARTS
+        </h1>
+        <p class="text-xs uppercase tracking-widest text-amber-500/90 font-semibold mt-1 mb-6">
+            Salón de Dardos Tradicional • 501 & Cricket
+        </p>
+
+        <!-- Selector de Versiones -->
+        <div class="flex flex-col gap-3.5 text-left">
+
+            <!-- 1. Clásico Coke Darts 2D Arcade -->
+            <a href="classic.html" class="btn-classic-retro block p-4 rounded-xl transition duration-200 group">
+                <div class="flex items-center justify-between">
+                    <div class="flex items-center gap-3">
+                        <span class="text-2xl group-hover:scale-110 transition">🕹️</span>
+                        <div>
+                            <div class="font-bold text-amber-300 text-base flex items-center gap-2">
+                                <span>Coke Darts Clásico (2D Arcade)</span>
+                                <span class="text-[9px] uppercase font-bold tracking-wider px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-400/30">ORIGINAL</span>
+                            </div>
+                            <p class="text-xs text-amber-200/70 mt-0.5">La versión 2D original arcade con música de taberna y puntuación retro.</p>
+                        </div>
+                    </div>
+                    <span class="text-amber-400 text-lg group-hover:translate-x-1 transition font-bold">➔</span>
+                </div>
+            </a>
+
+            <!-- 2. Versión Móvil 3D (Táctil) -->
+            <a href="mobile.html" class="btn-felt-green block p-4 rounded-xl transition duration-200 group">
+                <div class="flex items-center justify-between">
+                    <div class="flex items-center gap-3">
+                        <span class="text-2xl group-hover:scale-110 transition">📱</span>
+                        <div>
+                            <div class="font-bold text-emerald-200 text-base flex items-center gap-2">
+                                <span>Pro Darts 3D – Edición Móvil</span>
+                                <span class="text-[9px] uppercase font-bold tracking-wider px-1.5 py-0.5 rounded bg-emerald-500/25 text-emerald-300 border border-emerald-400/40">TÁCTIL</span>
+                            </div>
+                            <p class="text-xs text-emerald-100/70 mt-0.5">Diana 100% despejada, controles al pulgar, zoom con 2 dedos y vibración háptica.</p>
+                        </div>
+                    </div>
+                    <span class="text-emerald-300 text-lg group-hover:translate-x-1 transition font-bold">➔</span>
+                </div>
+            </a>
+
+            <!-- 3. Versión Escritorio / PC 3D -->
+            <a href="pro_darts_3d_unreal_style_webgl.html" class="btn-wood-ochre block p-4 rounded-xl transition duration-200 group">
+                <div class="flex items-center justify-between">
+                    <div class="flex items-center gap-3">
+                        <span class="text-2xl group-hover:scale-110 transition">🖥️</span>
+                        <div>
+                            <div class="font-bold text-amber-200 text-base flex items-center gap-2">
+                                <span>Pro Darts 3D – Unreal Style (PC)</span>
+                                <span class="text-[9px] uppercase font-bold tracking-wider px-1.5 py-0.5 rounded bg-amber-500/25 text-amber-300 border border-amber-400/40">HD</span>
+                            </div>
+                            <p class="text-xs text-amber-100/70 mt-0.5">Físicas 3D completas, iluminación PBR de taberna, marcador extendido y zoom.</p>
+                        </div>
+                    </div>
+                    <span class="text-amber-300 text-lg group-hover:translate-x-1 transition font-bold">➔</span>
+                </div>
+            </a>
+
+        </div>
+
+        <!-- Indicador de detección de dispositivo -->
+        <div id="mob-detector-hint" class="hidden mt-5 pt-3 border-t border-amber-900/40 text-xs text-amber-300/90 font-medium">
+            💡 <span>Dispositivo móvil detectado: Te recomendamos la <b>Edición Móvil</b> con controles táctiles optimizados.</span>
+        </div>
+
     </div>
 
     <script>

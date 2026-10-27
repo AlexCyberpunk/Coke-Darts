@@ -6,7 +6,7 @@
     <title>Pro Darts 3D – Edición Móvil</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:ital,wght@0,500;0,700;1,700&family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@700;900&family=Chakra+Petch:wght@600;700&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <style>
         * {
             user-select: none;
@@ -20,11 +20,12 @@
             width: 100%;
             height: 100%;
             overflow: hidden;
-            background-color: #06070b;
+            background: radial-gradient(circle at center, #24160d 0%, #150d08 60%, #080402 100%);
             font-family: 'Inter', sans-serif;
-            color: #f8fafc;
+            color: #f5eedc;
             touch-action: none;
         }
+        .font-pub { font-family: 'Cinzel', serif; }
         .font-display { font-family: 'Chakra Petch', sans-serif; }
         
         #canvas-container {
@@ -35,12 +36,13 @@
             z-index: 1;
         }
 
+        /* Estilo Vidrio de Taberna / Madera y Fieltro */
         .hud-glass {
-            background: rgba(10, 14, 24, 0.85);
-            backdrop-filter: blur(12px);
-            -webkit-backdrop-filter: blur(12px);
-            border: 1px solid rgba(255, 255, 255, 0.12);
-            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+            background: rgba(30, 20, 14, 0.88);
+            backdrop-filter: blur(14px);
+            -webkit-backdrop-filter: blur(14px);
+            border: 1px solid rgba(217, 119, 6, 0.4);
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.7), inset 0 1px 1px rgba(254, 243, 199, 0.12);
         }
 
         .vignette-overlay {
@@ -48,14 +50,14 @@
             inset: 0;
             pointer-events: none;
             z-index: 2;
-            background: radial-gradient(circle at center, transparent 48%, rgba(3, 5, 10, 0.85) 100%);
+            background: radial-gradient(circle at center, transparent 46%, rgba(12, 7, 4, 0.88) 100%);
         }
 
         /* Modal inicial / opciones */
         #mobile-setup-modal {
             position: fixed;
             inset: 0;
-            background: rgba(3, 5, 10, 0.94);
+            background: rgba(16, 10, 6, 0.94);
             backdrop-filter: blur(16px);
             -webkit-backdrop-filter: blur(16px);
             z-index: 9999;
@@ -78,7 +80,17 @@
         }
 
         .sweet-spot-glow {
-            box-shadow: 0 0 16px rgba(16, 185, 129, 0.85), inset 0 0 6px rgba(255, 255, 255, 0.7);
+            box-shadow: 0 0 16px rgba(245, 158, 11, 0.85), inset 0 0 6px rgba(254, 243, 199, 0.7);
+        }
+
+        /* Pizarra Cricket Plegable */
+        #mobile-cricket-drawer {
+            transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.3s;
+        }
+        #mobile-cricket-drawer.collapsed {
+            transform: translateY(-120%);
+            opacity: 0;
+            pointer-events: none;
         }
     </style>
 </head>
@@ -91,44 +103,83 @@
     <!-- Feedback flotante al clavar dardo -->
     <div id="floating-feedback-container" class="pointer-events-none fixed inset-0 flex items-center justify-center z-40"></div>
 
-    <!-- HUD Móvil Limpio (Cero obstrucción de la diana) -->
-    <div class="relative z-10 pointer-events-none w-full h-full flex flex-col justify-between p-3" style="padding-top: max(0.75rem, env(safe-area-inset-top)); padding-bottom: max(0.75rem, env(safe-area-inset-bottom));">
+    <!-- Controles Rápidos de Zoom en Pantalla Táctil -->
+    <div id="zoom-controls" class="fixed right-2.5 top-1/2 -translate-y-1/2 flex flex-col gap-1.5 z-30 pointer-events-auto">
+        <button id="mob-zoom-in" title="Acercar" class="w-8 h-8 rounded-full bg-amber-950/85 hover:bg-amber-900 border border-amber-600/50 text-amber-200 flex items-center justify-center font-bold text-sm shadow-lg active:scale-90 transition">
+            +
+        </button>
+        <button id="mob-zoom-reset" title="Restablecer" class="w-8 h-6 rounded-md bg-amber-950/85 hover:bg-amber-900 border border-amber-600/50 text-amber-300 flex items-center justify-center font-bold text-[9px] shadow-lg active:scale-90 transition">
+            1:1
+        </button>
+        <button id="mob-zoom-out" title="Alejar" class="w-8 h-8 rounded-full bg-amber-950/85 hover:bg-amber-900 border border-amber-600/50 text-amber-200 flex items-center justify-center font-bold text-sm shadow-lg active:scale-90 transition">
+            −
+        </button>
+    </div>
 
-        <!-- Zona Superior: Marcador + Turno + Cierre (Pegado arriba sin tapar la diana) -->
-        <div class="flex flex-col gap-1.5 w-full pointer-events-auto">
+    <!-- HUD Móvil Limpio (Cero obstrucción de la diana) -->
+    <div class="relative z-10 pointer-events-none w-full h-full flex flex-col justify-between p-3" style="padding-top: max(0.6rem, env(safe-area-inset-top)); padding-bottom: max(0.6rem, env(safe-area-inset-bottom));">
+
+        <!-- Zona Superior: Marcador + Turno + Cierre + Botón Pizarra -->
+        <div class="flex flex-col gap-1 w-full pointer-events-auto">
             <!-- Barra Superior Flotante: Marcador + Turno + Menú -->
             <div class="flex items-center justify-between w-full">
-                <!-- Marcador Versus estilo Píldora -->
-                <div class="hud-glass flex items-center gap-2 px-3.5 py-1.5 rounded-full border-white/20">
+                <!-- Marcador Versus estilo Píldora Ocre / Fieltro -->
+                <div class="hud-glass flex items-center gap-2 px-3 py-1.5 rounded-full border-amber-600/40">
                     <div id="mob-p1-box" class="flex items-baseline gap-1">
-                        <span id="mob-p1-name" class="text-[11px] font-bold text-sky-400 uppercase">COKE</span>
-                        <span id="mob-p1-score" class="font-display font-extrabold text-white text-base">501</span>
+                        <span id="mob-p1-name" class="text-[11px] font-bold text-emerald-400 uppercase">COKE</span>
+                        <span id="mob-p1-score" class="font-display font-extrabold text-amber-200 text-base">501</span>
                     </div>
-                    <span class="text-[10px] font-extrabold text-slate-500">VS</span>
+                    <span class="text-[10px] font-extrabold text-amber-600">VS</span>
                     <div id="mob-p2-box" class="flex items-baseline gap-1">
-                        <span id="mob-p2-name" class="text-[11px] font-bold text-rose-400 uppercase">IA</span>
-                        <span id="mob-p2-score" class="font-display font-extrabold text-slate-300 text-base">501</span>
+                        <span id="mob-p2-name" class="text-[11px] font-bold text-amber-400 uppercase">IA</span>
+                        <span id="mob-p2-score" class="font-display font-extrabold text-amber-100/70 text-base">501</span>
                     </div>
                 </div>
 
-                <!-- Indicador de Dardos de la Ronda (3 esferas luminosas) -->
-                <div class="hud-glass flex items-center gap-1.5 px-3 py-1.5 rounded-full border-white/20">
-                    <span class="text-[10px] uppercase font-bold text-slate-400 mr-0.5">Dardos</span>
+                <!-- Indicador de Dardos de la Ronda (3 esferas luminosas ámbar) -->
+                <div class="hud-glass flex items-center gap-1.5 px-2.5 py-1.5 rounded-full border-amber-600/40">
+                    <span class="text-[9px] uppercase font-bold text-amber-400/80 mr-0.5">Dardos</span>
                     <div id="mob-dart-1" class="w-2.5 h-2.5 rounded-full bg-amber-400 shadow-[0_0_8px_#f59e0b]"></div>
                     <div id="mob-dart-2" class="w-2.5 h-2.5 rounded-full bg-amber-400 shadow-[0_0_8px_#f59e0b]"></div>
                     <div id="mob-dart-3" class="w-2.5 h-2.5 rounded-full bg-amber-400 shadow-[0_0_8px_#f59e0b]"></div>
                 </div>
 
-                <!-- Botón Opciones / Menú -->
-                <button id="btn-open-menu" class="w-9 h-9 rounded-full bg-slate-900/90 border border-white/20 text-white flex items-center justify-center text-sm shadow-lg active:scale-90 transition">
-                    ⚙️
-                </button>
+                <div class="flex items-center gap-1">
+                    <!-- Botón Alternar Pizarra Cricket (visible solo en modos Cricket) -->
+                    <button id="btn-toggle-cricket" class="hidden h-8 px-2 rounded-full bg-emerald-950/80 border border-emerald-500/40 text-emerald-300 text-[10px] font-bold shadow-lg active:scale-90 transition flex items-center gap-1">
+                        <span>📋</span>
+                        <span id="cricket-btn-label">Pizarra</span>
+                    </button>
+                    <!-- Botón Opciones / Menú -->
+                    <button id="btn-open-menu" class="w-8 h-8 rounded-full bg-amber-950/90 border border-amber-600/40 text-amber-200 flex items-center justify-center text-xs shadow-lg active:scale-90 transition">
+                        ⚙️
+                    </button>
+                </div>
             </div>
 
             <!-- Sugerencia de Cierre / Estado de Ronda en centro superior -->
             <div class="w-full flex justify-center pointer-events-none">
-                <div id="mob-checkout-banner" class="hud-glass text-[10px] font-semibold text-amber-300 px-3 py-0.5 rounded-full border-amber-400/30 opacity-90 text-center">
+                <div id="mob-checkout-banner" class="hud-glass text-[10px] font-semibold text-amber-300 px-3 py-0.5 rounded-full border-amber-500/30 opacity-90 text-center">
                     Ronda 1 • Apunta tocando la diana
+                </div>
+            </div>
+
+            <!-- Cajón Desplegable de Pizarra Cricket Móvil -->
+            <div id="mobile-cricket-drawer" class="collapsed w-full max-w-sm mx-auto hud-glass rounded-2xl p-2.5 border-amber-600/40 shadow-2xl">
+                <div class="flex items-center justify-between mb-1.5 px-1">
+                    <span id="cricket-drawer-title" class="text-[11px] font-bold text-amber-300 uppercase tracking-wider">
+                        📋 Cricket Normal (Más puntos gana)
+                    </span>
+                    <button id="btn-close-cricket" class="text-xs text-amber-400 font-bold px-1.5 py-0.5 rounded bg-amber-950/60 border border-amber-700/40">
+                        ✕
+                    </button>
+                </div>
+                <!-- Filas Cricket -->
+                <div id="mob-cricket-rows" class="divide-y divide-amber-900/30 bg-black/40 rounded-xl overflow-hidden text-xs">
+                    <!-- Rellenado dinámicamente -->
+                </div>
+                <div id="mob-cricket-note" class="text-[10px] text-amber-200/70 mt-1.5 text-center">
+                    Cierra del 20 al 15 y Bull con 3 marcas (⊗).
                 </div>
             </div>
         </div>
@@ -136,29 +187,29 @@
         <!-- Zona Inferior de Control de Tiro (Área del pulgar) -->
         <div class="w-full max-w-md mx-auto flex flex-col gap-2 pointer-events-auto">
 
-            <!-- Barra de Precisión Estilo Golf -->
-            <div id="mob-golf-panel" class="hud-glass w-full rounded-2xl p-2.5 transition-all duration-200 border-white/15">
-                <div class="flex items-center justify-between text-[11px] mb-1.5 px-1">
+            <!-- Barra de Precisión Estilo Golf (Fase 2) -->
+            <div id="mob-golf-panel" class="hud-glass w-full rounded-2xl p-2.5 transition-all duration-200 border-amber-600/30">
+                <div class="flex items-center justify-between text-[11px] mb-1 px-1">
                     <span id="mob-phase-badge" class="font-bold text-amber-300 uppercase tracking-wider flex items-center gap-1.5">
                         <span class="w-2 h-2 rounded-full bg-amber-400 animate-pulse"></span>
-                        <span id="mob-phase-text">Paso 1: Elige zona</span>
+                        <span id="mob-phase-text">Paso 1: Toca la diana</span>
                     </span>
-                    <span id="mob-score-preview" class="text-sky-300 font-bold">Precisión: --</span>
+                    <span id="mob-score-preview" class="text-emerald-300 font-bold">Precisión: --</span>
                 </div>
 
-                <!-- Pista de la Barra -->
-                <div class="relative w-full h-8 bg-slate-950/90 rounded-xl border border-white/15 overflow-hidden p-1 shadow-inner">
+                <!-- Pista de la Barra con Tonos de Fieltro y Madera -->
+                <div class="relative w-full h-8 bg-black/70 rounded-xl border border-amber-700/40 overflow-hidden p-1 shadow-inner">
                     <!-- Centro y Sweet Spot -->
-                    <div id="mob-sweet-zone" class="absolute top-1 bottom-1 rounded-md bg-emerald-500/50 border border-emerald-300 sweet-spot-glow transition-all" style="left: 45%; width: 10%;">
+                    <div id="mob-sweet-zone" class="absolute top-1 bottom-1 rounded-md bg-emerald-600/60 border border-emerald-400 sweet-spot-glow transition-all" style="left: 45%; width: 10%;">
                         <div class="absolute left-1/2 top-0 bottom-0 -translate-x-1/2 w-0.5 bg-white shadow-[0_0_6px_#fff]"></div>
                     </div>
                     <!-- Aguja / Marcador móvil -->
-                    <div id="mob-bar-needle" class="absolute top-0 bottom-0 w-2.5 -ml-1 rounded-full bg-white shadow-[0_0_12px_#38bdf8]" style="left: 10%;"></div>
+                    <div id="mob-bar-needle" class="absolute top-0 bottom-0 w-2.5 -ml-1 rounded-full bg-amber-200 shadow-[0_0_12px_#f59e0b]" style="left: 10%;"></div>
                 </div>
             </div>
 
-            <!-- Botón Grande de Acción Táctil -->
-            <button id="mob-btn-action" class="w-full py-3 px-4 rounded-2xl bg-gradient-to-r from-amber-500 via-rose-500 to-indigo-600 active:scale-95 text-white font-display font-extrabold text-base tracking-wider shadow-lg shadow-rose-500/25 transition-transform flex items-center justify-center gap-2">
+            <!-- Botón Grande de Acción Táctil (Fieltro verde y cuero ocre) -->
+            <button id="mob-btn-action" class="w-full py-3.5 px-4 rounded-2xl bg-gradient-to-r from-emerald-800 via-emerald-700 to-amber-800 active:scale-95 text-amber-100 font-pub font-bold text-base tracking-wider border border-amber-600/40 shadow-lg shadow-black/60 transition-transform flex items-center justify-center gap-2">
                 <span>🎯</span>
                 <span id="mob-btn-action-label">FIJAR ÁREA DE TIRO</span>
             </button>
@@ -168,42 +219,45 @@
 
     <!-- Modal de Configuración y Oponentes para Móvil -->
     <div id="mobile-setup-modal">
-        <div class="hud-glass max-w-sm w-full p-5 sm:p-6 rounded-3xl border border-white/20 text-center flex flex-col gap-4 shadow-2xl">
+        <div class="hud-glass max-w-sm w-full p-5 sm:p-6 rounded-3xl border border-amber-600/50 text-center flex flex-col gap-4 shadow-2xl">
             <div>
-                <h2 class="font-display text-3xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-amber-400 via-rose-400 to-indigo-400">
-                    🎯 PRO DARTS 3D
+                <h2 class="font-pub text-3xl font-extrabold text-amber-200 drop-shadow">
+                    COKE'S DARTS
                 </h2>
-                <p class="text-xs text-slate-300 mt-0.5">Versión Móvil Optimizada</p>
+                <p class="text-xs uppercase tracking-wider text-amber-500 font-semibold mt-0.5">Edición Móvil • Salón de Dardos</p>
             </div>
 
-            <!-- Modo de Juego -->
+            <!-- Oponente -->
             <div class="text-left">
-                <label class="text-[11px] font-bold uppercase tracking-wider text-slate-400 mb-1 block">Oponente</label>
+                <label class="text-[11px] font-bold uppercase tracking-wider text-amber-400/80 mb-1 block">Oponente</label>
                 <div class="grid grid-cols-3 gap-1.5" id="mob-opp-selector">
-                    <button type="button" data-opp="VS_BOT" class="mob-opt-btn active-opt py-2 px-1 rounded-xl border border-sky-400 bg-sky-500/25 text-sky-200 font-bold text-xs flex flex-col items-center gap-1">
+                    <button type="button" data-opp="VS_BOT" class="mob-opt-btn active-opt py-2 px-1 rounded-xl border border-emerald-500/50 bg-emerald-900/40 text-emerald-200 font-bold text-xs flex flex-col items-center gap-1">
                         <span>🤖</span>
                         <span>Vs Bot</span>
                     </button>
-                    <button type="button" data-opp="2P" class="mob-opt-btn py-2 px-1 rounded-xl border border-white/10 bg-slate-900/60 text-slate-300 font-semibold text-xs flex flex-col items-center gap-1">
+                    <button type="button" data-opp="2P" class="mob-opt-btn py-2 px-1 rounded-xl border border-amber-900/40 bg-black/40 text-amber-200/70 font-semibold text-xs flex flex-col items-center gap-1">
                         <span>👥</span>
                         <span>2 Jugad.</span>
                     </button>
-                    <button type="button" data-opp="SOLO" class="mob-opt-btn py-2 px-1 rounded-xl border border-white/10 bg-slate-900/60 text-slate-300 font-semibold text-xs flex flex-col items-center gap-1">
+                    <button type="button" data-opp="SOLO" class="mob-opt-btn py-2 px-1 rounded-xl border border-amber-900/40 bg-black/40 text-amber-200/70 font-semibold text-xs flex flex-col items-center gap-1">
                         <span>🎯</span>
                         <span>Práctica</span>
                     </button>
                 </div>
             </div>
 
-            <!-- Reglas (501 / Cricket) -->
+            <!-- Reglas (501 / Cricket Normal / Cricket Cut-Throat) -->
             <div class="text-left">
-                <label class="text-[11px] font-bold uppercase tracking-wider text-slate-400 mb-1 block">Reglas</label>
-                <div class="grid grid-cols-2 gap-2" id="mob-mode-selector">
-                    <button type="button" data-mode="501" class="mob-mode-btn py-2 px-3 rounded-xl border border-amber-400 bg-amber-500/25 text-amber-200 font-bold text-xs">
-                        🎯 Torneo 501
+                <label class="text-[11px] font-bold uppercase tracking-wider text-amber-400/80 mb-1 block">Reglas de Competición</label>
+                <div class="grid grid-cols-3 gap-1.5" id="mob-mode-selector">
+                    <button type="button" data-mode="501" class="mob-mode-btn py-2 px-1 rounded-xl border border-amber-500 bg-amber-700/30 text-amber-200 font-bold text-[11px] text-center">
+                        🎯 501
                     </button>
-                    <button type="button" data-mode="CRICKET" class="mob-mode-btn py-2 px-3 rounded-xl border border-white/10 bg-slate-900/60 text-slate-300 font-semibold text-xs">
+                    <button type="button" data-mode="CRICKET" class="mob-mode-btn py-2 px-1 rounded-xl border border-amber-900/40 bg-black/40 text-amber-200/70 font-semibold text-[11px] text-center">
                         📋 Cricket
+                    </button>
+                    <button type="button" data-mode="CRICKET_CUTTHROAT" class="mob-mode-btn py-2 px-1 rounded-xl border border-amber-900/40 bg-black/40 text-amber-200/70 font-semibold text-[11px] text-center">
+                        ⚔️ Cut-Throat
                     </button>
                 </div>
             </div>
@@ -211,34 +265,37 @@
             <!-- Nombres -->
             <div class="text-left flex flex-col gap-2">
                 <div>
-                    <label class="text-[11px] font-bold uppercase tracking-wider text-slate-400 block mb-0.5">Tu Nombre</label>
-                    <input type="text" id="mob-input-p1" value="COKE" class="w-full py-1.5 px-3 rounded-xl border border-white/15 bg-slate-950/80 text-white font-medium text-xs focus:border-amber-400 focus:outline-none" />
+                    <label class="text-[11px] font-bold uppercase tracking-wider text-amber-400/80 block mb-0.5">Tu Nombre</label>
+                    <input type="text" id="mob-input-p1" value="COKE" class="w-full py-1.5 px-3 rounded-xl border border-amber-700/40 bg-black/60 text-amber-100 font-medium text-xs focus:border-amber-400 focus:outline-none" />
                 </div>
                 <div id="mob-p2-name-wrap">
-                    <label class="text-[11px] font-bold uppercase tracking-wider text-slate-400 block mb-0.5">Rival / Ordenador</label>
-                    <input type="text" id="mob-input-p2" value="ORDENADOR (IA)" class="w-full py-1.5 px-3 rounded-xl border border-white/15 bg-slate-950/80 text-white font-medium text-xs focus:border-sky-400 focus:outline-none" />
+                    <label class="text-[11px] font-bold uppercase tracking-wider text-amber-400/80 block mb-0.5">Rival / Ordenador</label>
+                    <input type="text" id="mob-input-p2" value="ORDENADOR (IA)" class="w-full py-1.5 px-3 rounded-xl border border-amber-700/40 bg-black/60 text-amber-100 font-medium text-xs focus:border-amber-400 focus:outline-none" />
                 </div>
             </div>
 
             <!-- Dificultad IA -->
             <div class="text-left" id="mob-diff-wrap">
-                <label class="text-[11px] font-bold uppercase tracking-wider text-slate-400 mb-1 block">Nivel del Bot</label>
+                <label class="text-[11px] font-bold uppercase tracking-wider text-amber-400/80 mb-1 block">Nivel del Bot</label>
                 <div class="grid grid-cols-3 gap-1.5">
-                    <button type="button" data-diff="0" class="mob-diff-btn py-1 rounded-lg border border-white/10 bg-slate-900/60 text-slate-300 text-xs">Fácil</button>
-                    <button type="button" data-diff="1" class="mob-diff-btn py-1 rounded-lg border border-sky-400 bg-sky-500/25 text-sky-200 text-xs font-bold">Normal</button>
-                    <button type="button" data-diff="2" class="mob-diff-btn py-1 rounded-lg border border-white/10 bg-slate-900/60 text-slate-300 text-xs">Pro IA</button>
+                    <button type="button" data-diff="0" class="mob-diff-btn py-1 rounded-lg border border-amber-900/40 bg-black/40 text-amber-200/70 text-xs">Fácil</button>
+                    <button type="button" data-diff="1" class="mob-diff-btn py-1 rounded-lg border border-emerald-500 bg-emerald-900/30 text-emerald-200 text-xs font-bold">Normal</button>
+                    <button type="button" data-diff="2" class="mob-diff-btn py-1 rounded-lg border border-amber-900/40 bg-black/40 text-amber-200/70 text-xs">Pro IA</button>
                 </div>
             </div>
 
             <!-- Botón Jugar -->
-            <button id="mob-btn-play-confirm" type="button" class="w-full py-3 px-6 rounded-2xl bg-gradient-to-r from-amber-500 via-rose-500 to-indigo-600 text-white font-display font-extrabold text-base tracking-wider shadow-lg shadow-rose-500/30 active:scale-95 transition-all">
+            <button id="mob-btn-play-confirm" type="button" class="w-full py-3.5 px-6 rounded-2xl bg-gradient-to-r from-emerald-800 via-emerald-700 to-amber-800 text-amber-100 font-pub font-bold text-base tracking-wider border border-amber-600/40 shadow-lg shadow-black active:scale-95 transition-all">
                 ¡JUGAR AHORA!
             </button>
 
-            <div class="flex items-center justify-center gap-4 pt-1">
-                <a href="index.html" class="text-xs text-slate-400 hover:text-white transition">🏠 Menú Principal</a>
-                <span class="text-slate-600">•</span>
-                <a href="pro_darts_3d_unreal_style_webgl.html" class="text-xs text-slate-400 hover:text-white transition">🖥️ Versión PC</a>
+            <!-- Enlaces a Menú y 2D Clásico -->
+            <div class="flex items-center justify-center gap-3 pt-1 border-t border-amber-900/30 text-xs">
+                <a href="index.html" class="text-amber-400/80 hover:text-amber-200 transition">🏠 Inicio</a>
+                <span class="text-amber-800">•</span>
+                <a href="classic.html" class="text-emerald-400 hover:text-emerald-200 font-bold transition">🕹️ Clásico 2D</a>
+                <span class="text-amber-800">•</span>
+                <a href="pro_darts_3d_unreal_style_webgl.html" class="text-amber-400/80 hover:text-amber-200 transition">🖥️ Versión PC</a>
             </div>
         </div>
     </div>
@@ -258,100 +315,67 @@
                 if (this.ctx && this.ctx.state === 'suspended') this.ctx.resume();
             }
             vibrate(ms = 15) {
-                if (navigator.vibrate) {
+                if ('vibrate' in navigator) {
                     try { navigator.vibrate(ms); } catch (e) {}
                 }
             }
-            playLock() {
-                this.init();
-                this.vibrate(20);
+            playTone(freq, type = 'sine', duration = 0.1, gainVal = 0.15) {
                 if (!this.ctx) return;
-                const now = this.ctx.currentTime;
-                const osc = this.ctx.createOscillator();
-                const gain = this.ctx.createGain();
-                osc.type = 'triangle';
-                osc.frequency.setValueAtTime(540, now);
-                osc.frequency.exponentialRampToValueAtTime(720, now + 0.08);
-                gain.gain.setValueAtTime(0.2, now);
-                gain.gain.exponentialRampToValueAtTime(0.001, now + 0.09);
-                osc.connect(gain);
-                gain.connect(this.ctx.destination);
-                osc.start(now);
-                osc.stop(now + 0.09);
-            }
-            playWhoosh() {
-                this.init();
-                if (!this.ctx) return;
-                const now = this.ctx.currentTime;
-                const bufferSize = this.ctx.sampleRate * 0.2;
-                const buffer = this.ctx.createBuffer(1, bufferSize, this.ctx.sampleRate);
-                const data = buffer.getChannelData(0);
-                for (let i = 0; i < bufferSize; i++) data[i] = Math.random() * 2 - 1;
-                const noise = this.ctx.createBufferSource();
-                noise.buffer = buffer;
-                const filter = this.ctx.createBiquadFilter();
-                filter.type = 'bandpass';
-                filter.frequency.setValueAtTime(450, now);
-                filter.frequency.exponentialRampToValueAtTime(1200, now + 0.15);
-                const gain = this.ctx.createGain();
-                gain.gain.setValueAtTime(0.01, now);
-                gain.gain.linearRampToValueAtTime(0.2, now + 0.06);
-                gain.gain.exponentialRampToValueAtTime(0.001, now + 0.2);
-                noise.connect(filter);
-                filter.connect(gain);
-                gain.connect(this.ctx.destination);
-                noise.start(now);
-            }
-            playImpact(isHigh = false) {
-                this.init();
-                this.vibrate(isHigh ? [25, 30, 45] : 30);
-                if (!this.ctx) return;
-                const now = this.ctx.currentTime;
-                const osc = this.ctx.createOscillator();
-                const gain = this.ctx.createGain();
-                osc.type = 'sine';
-                osc.frequency.setValueAtTime(140, now);
-                osc.frequency.exponentialRampToValueAtTime(40, now + 0.12);
-                gain.gain.setValueAtTime(0.5, now);
-                gain.gain.exponentialRampToValueAtTime(0.001, now + 0.13);
-                osc.connect(gain);
-                gain.connect(this.ctx.destination);
-                osc.start(now);
-                osc.stop(now + 0.13);
-            }
-            playFanfare() {
-                this.init();
-                this.vibrate([40, 60, 40, 60, 100]);
-                if (!this.ctx) return;
-                const now = this.ctx.currentTime;
-                [523.25, 659.25, 783.99, 1046.50].forEach((freq, idx) => {
+                try {
                     const osc = this.ctx.createOscillator();
                     const gain = this.ctx.createGain();
-                    osc.type = 'triangle';
-                    osc.frequency.setValueAtTime(freq, now + idx * 0.08);
-                    gain.gain.setValueAtTime(0.15, now + idx * 0.08);
-                    gain.gain.exponentialRampToValueAtTime(0.001, now + idx * 0.08 + 0.4);
+                    osc.type = type;
+                    osc.frequency.setValueAtTime(freq, this.ctx.currentTime);
+                    gain.gain.setValueAtTime(gainVal, this.ctx.currentTime);
+                    gain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + duration);
                     osc.connect(gain);
                     gain.connect(this.ctx.destination);
-                    osc.start(now + idx * 0.08);
-                    osc.stop(now + idx * 0.08 + 0.41);
+                    osc.start();
+                    osc.stop(this.ctx.currentTime + duration);
+                } catch(e) {}
+            }
+            playLock() {
+                this.vibrate(25);
+                this.playTone(420, 'triangle', 0.08, 0.2);
+            }
+            playThrow() {
+                this.vibrate(18);
+                this.playTone(280, 'sine', 0.12, 0.25);
+            }
+            playImpact(isHigh = false) {
+                this.vibrate(isHigh ? 45 : 20);
+                this.playTone(isHigh ? 680 : 340, 'triangle', 0.15, 0.3);
+            }
+            playCricketClose() {
+                this.vibrate(50);
+                this.playTone(523, 'sine', 0.1, 0.25);
+                setTimeout(() => this.playTone(659, 'sine', 0.15, 0.3), 100);
+            }
+            playFanfare() {
+                this.vibrate([60, 40, 80]);
+                const notes = [523.25, 659.25, 783.99, 1046.5];
+                notes.forEach((n, i) => {
+                    setTimeout(() => this.playTone(n, 'triangle', 0.22, 0.35), i * 110);
                 });
             }
         }
         const sound = new MobileSoundEngine();
 
         /********************************************************************
-         * 2. REGLAMENTO OFICIAL DE LA DIANA Y ESCALA 3D
+         * 2. REGLAMENTO OFICIAL DE LA DIANA Y ESCALA 3D (REGLAS WDF / PDC)
          ********************************************************************/
         const DART_NUMBERS = [20, 1, 18, 4, 13, 6, 10, 15, 2, 17, 3, 19, 7, 16, 8, 11, 14, 9, 12, 5];
+        const CRICKET_TARGETS = [20, 19, 18, 17, 16, 15, 25]; // 25 = BULL
+
+        // Proporciones oficiales exactas (Doble y Triple tienen el mismo espesor: 0.11 unidades)
         const BOARD_RADII = {
             innerBull: 0.075,
             outerBull: 0.185,
             tripleInner: 0.98,
             tripleOuter: 1.09,
             doubleInner: 1.59,
-            doubleOuter: 2.0,
-            boardEdge: 2.45
+            doubleOuter: 1.70,   // Proporción reglamentaria oficial (espesor 0.11)
+            boardEdge: 2.22      // Borde exterior con números
         };
         const BOARD_Z_SURFACE = 0.14;
 
@@ -364,44 +388,49 @@
             canvas.width = size;
             canvas.height = size;
             const ctx = canvas.getContext('2d');
-            const cx = size / 2;
-            const cy = size / 2;
+            const cx = size / 2, cy = size / 2;
             const scale = (size / 2) / BOARD_RADII.boardEdge;
 
+            // Borde exterior negro
             ctx.fillStyle = '#0f1115';
-            ctx.fillRect(0, 0, size, size);
+            ctx.beginPath();
+            ctx.arc(cx, cy, size / 2, 0, Math.PI * 2);
+            ctx.fill();
 
             const sliceAngle = (Math.PI * 2) / 20;
+
             for (let i = 0; i < 20; i++) {
                 const startAngle = -Math.PI / 2 - sliceAngle / 2 + i * sliceAngle;
                 const endAngle = startAngle + sliceAngle;
                 const isEven = i % 2 === 0;
 
+                // Sector simple
                 ctx.beginPath();
                 ctx.moveTo(cx, cy);
                 ctx.arc(cx, cy, BOARD_RADII.doubleOuter * scale, startAngle, endAngle);
-                ctx.fillStyle = isEven ? '#121316' : '#f3ead8';
+                ctx.closePath();
+                ctx.fillStyle = isEven ? '#17191e' : '#f5edd6';
                 ctx.fill();
 
                 // Doble
                 ctx.beginPath();
                 ctx.arc(cx, cy, BOARD_RADII.doubleOuter * scale, startAngle, endAngle);
                 ctx.arc(cx, cy, BOARD_RADII.doubleInner * scale, endAngle, startAngle, true);
-                ctx.fillStyle = isEven ? '#c81d25' : '#117a37';
+                ctx.fillStyle = isEven ? '#c81d25' : '#146936';
                 ctx.fill();
 
                 // Triple
                 ctx.beginPath();
                 ctx.arc(cx, cy, BOARD_RADII.tripleOuter * scale, startAngle, endAngle);
                 ctx.arc(cx, cy, BOARD_RADII.tripleInner * scale, endAngle, startAngle, true);
-                ctx.fillStyle = isEven ? '#c81d25' : '#117a37';
+                ctx.fillStyle = isEven ? '#c81d25' : '#146936';
                 ctx.fill();
             }
 
             // Outer Bull
             ctx.beginPath();
             ctx.arc(cx, cy, BOARD_RADII.outerBull * scale, 0, Math.PI * 2);
-            ctx.fillStyle = '#117a37';
+            ctx.fillStyle = '#146936';
             ctx.fill();
 
             // Inner Bull
@@ -410,7 +439,7 @@
             ctx.fillStyle = '#c81d25';
             ctx.fill();
 
-            // Números
+            // Números oficiales
             const numberRadius = 1.95 * scale;
             ctx.font = '800 58px "Chakra Petch", sans-serif';
             ctx.textAlign = 'center';
@@ -430,83 +459,93 @@
         }
 
         /********************************************************************
-         * 4. ESCENA 3D Y CÁMARA VERTICAL MÓVIL
+         * 4. ESCENA 3D Y CÁMARA CON SOPORTE DE ZOOM TÁCTIL Y RATÓN
          ********************************************************************/
         const container = document.getElementById('canvas-container');
         const scene = new THREE.Scene();
-        scene.background = new THREE.Color(0x06070b);
+        scene.background = new THREE.Color(0x1a100a);
 
-        const camera = new THREE.PerspectiveCamera(54, window.innerWidth / window.innerHeight, 0.1, 50);
-        const CAM_POS = new THREE.Vector3(0, 0.42, 9.8);
+        const camera = new THREE.PerspectiveCamera(54, window.innerWidth / window.innerHeight, 0.1, 100);
+        const BASE_CAM_POS = new THREE.Vector3(0, 0.42, 9.8);
         const CAM_LOOK = new THREE.Vector3(0, 0.28, 0);
-        camera.position.copy(CAM_POS);
+
+        let targetZoom = 1.0;
+        let currentZoom = 1.0;
+
+        camera.position.copy(BASE_CAM_POS);
         camera.lookAt(CAM_LOOK);
 
         const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
-        renderer.setSize(window.innerWidth, window.innerHeight);
         renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-        renderer.toneMapping = THREE.ACESFilmicToneMapping;
-        renderer.toneMappingExposure = 1.2;
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.outputEncoding = THREE.sRGBEncoding;
         container.appendChild(renderer.domElement);
 
-        // Iluminación
-        const ambientLight = new THREE.AmbientLight(0x2a3042, 0.7);
+        // Iluminación cálida de taberna
+        const ambientLight = new THREE.AmbientLight(0xffecd1, 0.85);
         scene.add(ambientLight);
 
-        const spotLight = new THREE.SpotLight(0xfff1d6, 3.2);
-        spotLight.position.set(0.3, 3.5, 4.0);
-        spotLight.angle = Math.PI / 4.2;
-        spotLight.penumbra = 0.6;
+        const spotLight = new THREE.SpotLight(0xfffaed, 2.4, 25, Math.PI / 3.8, 0.45, 1.2);
+        spotLight.position.set(0, 2.5, 7.5);
+        spotLight.target.position.set(0, 0, 0);
         scene.add(spotLight);
-
-        const rimLight = new THREE.DirectionalLight(0x38bdf8, 0.8);
-        rimLight.position.set(-3.5, -1.2, 2.5);
-        scene.add(rimLight);
+        scene.add(spotLight.target);
 
         // Diana 3D
         const boardGroup = new THREE.Group();
         scene.add(boardGroup);
 
         const boardTex = createMobileDartboardTextures();
-        const faceMat = new THREE.MeshStandardMaterial({
-            map: boardTex,
-            roughness: 0.8,
-            metalness: 0.05
-        });
-
         const cylinderGeo = new THREE.CylinderGeometry(BOARD_RADII.boardEdge, BOARD_RADII.boardEdge, BOARD_Z_SURFACE * 2, 64);
         cylinderGeo.rotateX(Math.PI / 2);
-        const sideMat = new THREE.MeshStandardMaterial({ color: 0x090a0f, roughness: 0.6 });
-        const bodyMesh = new THREE.Mesh(cylinderGeo, sideMat);
-        boardGroup.add(bodyMesh);
+        const sideMat = new THREE.MeshStandardMaterial({ color: 0x120c08, roughness: 0.8 });
+        const faceMat = new THREE.MeshStandardMaterial({ map: boardTex, roughness: 0.65 });
+
+        const boardMesh = new THREE.Mesh(cylinderGeo, [sideMat, faceMat, sideMat]);
+        boardGroup.add(boardMesh);
 
         const faceGeo = new THREE.CircleGeometry(BOARD_RADII.boardEdge, 64);
         const faceMesh = new THREE.Mesh(faceGeo, faceMat);
         faceMesh.position.z = BOARD_Z_SURFACE + 0.001;
         boardGroup.add(faceMesh);
 
-        // Retícula de Apuntado (Fase 1)
+        // Anillo de metal exterior
+        const outerWireGeo = new THREE.TorusGeometry(BOARD_RADII.doubleOuter, 0.009, 8, 64);
+        const wireMat = new THREE.MeshStandardMaterial({ color: 0xe2e8f0, roughness: 0.3, metalness: 0.85 });
+        const outerWire = new THREE.Mesh(outerWireGeo, wireMat);
+        outerWire.position.z = BOARD_Z_SURFACE + 0.004;
+        boardGroup.add(outerWire);
+
+        // Retícula de Apuntado (Fase 1) - Círculo ampliado y bien visible
         const aimGroup = new THREE.Group();
         aimGroup.position.z = BOARD_Z_SURFACE + 0.005;
         scene.add(aimGroup);
 
-        const aimRingGeo = new THREE.RingGeometry(0.18, 0.22, 32);
+        // Anillo exterior ámbar
+        const aimRingGeo = new THREE.RingGeometry(0.38, 0.44, 48);
         const aimRingMat = new THREE.MeshBasicMaterial({ color: 0xf59e0b, transparent: true, opacity: 0.85 });
         const aimRingMesh = new THREE.Mesh(aimRingGeo, aimRingMat);
         aimGroup.add(aimRingMesh);
 
-        const aimDotGeo = new THREE.CircleGeometry(0.035, 16);
-        const aimDotMat = new THREE.MeshBasicMaterial({ color: 0xffffff });
-        aimGroup.add(new THREE.Mesh(aimDotGeo, aimDotMat));
+        // Disco interior translúcido
+        const aimFillGeo = new THREE.CircleGeometry(0.38, 48);
+        const aimFillMat = new THREE.MeshBasicMaterial({ color: 0xf59e0b, transparent: true, opacity: 0.18 });
+        aimGroup.add(new THREE.Mesh(aimFillGeo, aimFillMat));
+
+        // Cruz de precisión
+        const crossMat = new THREE.MeshBasicMaterial({ color: 0xfef3c7, transparent: true, opacity: 0.8 });
+        const ch1 = new THREE.Mesh(new THREE.PlaneGeometry(0.12, 0.016), crossMat);
+        const ch2 = new THREE.Mesh(new THREE.PlaneGeometry(0.016, 0.12), crossMat);
+        aimGroup.add(ch1, ch2);
 
         // Punto Oscilante (Fase 3)
         const swayGroup = new THREE.Group();
-        swayGroup.position.z = BOARD_Z_SURFACE + 0.006;
+        swayGroup.position.z = BOARD_Z_SURFACE + 0.008;
         swayGroup.visible = false;
         scene.add(swayGroup);
 
-        const swayRingGeo = new THREE.RingGeometry(0.04, 0.08, 16);
-        const swayRingMat = new THREE.MeshBasicMaterial({ color: 0x38bdf8, transparent: true, opacity: 0.9 });
+        const swayRingGeo = new THREE.RingGeometry(0.05, 0.09, 24);
+        const swayRingMat = new THREE.MeshBasicMaterial({ color: 0x34d399, transparent: true, opacity: 0.9 });
         swayGroup.add(new THREE.Mesh(swayRingGeo, swayRingMat));
 
         /********************************************************************
@@ -523,102 +562,195 @@
 
             const barrelGeo = new THREE.CylinderGeometry(0.024, 0.024, 0.32, 12);
             barrelGeo.rotateX(Math.PI / 2);
-            const barrelMat = new THREE.MeshStandardMaterial({ color: 0x94a3b8, metalness: 0.85, roughness: 0.3 });
+            const barrelMat = new THREE.MeshStandardMaterial({ color: 0xb45309, metalness: 0.85, roughness: 0.3 });
             const barrelMesh = new THREE.Mesh(barrelGeo, barrelMat);
-            barrelMesh.position.z = 0.16;
+            barrelMesh.position.z = -0.32;
             root.add(barrelMesh);
 
-            const flightMat = new THREE.MeshStandardMaterial({ color: colorHex, roughness: 0.4 });
-            for (let i = 0; i < 4; i++) {
-                const fGeo = new THREE.PlaneGeometry(0.12, 0.14);
-                fGeo.rotateZ((i * Math.PI) / 2);
-                fGeo.translate(0, 0, 0.42);
-                root.add(new THREE.Mesh(fGeo, flightMat));
-            }
+            const shaftGeo = new THREE.CylinderGeometry(0.014, 0.014, 0.38, 8);
+            shaftGeo.rotateX(Math.PI / 2);
+            const shaftMat = new THREE.MeshStandardMaterial({ color: 0x1c1917, roughness: 0.5 });
+            const shaftMesh = new THREE.Mesh(shaftGeo, shaftMat);
+            shaftMesh.position.z = -0.65;
+            root.add(shaftMesh);
+
+            const flightMat = new THREE.MeshStandardMaterial({ color: colorHex, roughness: 0.4, side: THREE.DoubleSide });
+            const f1 = new THREE.Mesh(new THREE.PlaneGeometry(0.18, 0.16), flightMat);
+            f1.position.z = -0.80;
+            const f2 = f1.clone();
+            f2.rotation.z = Math.PI / 2;
+            root.add(f1, f2);
+
             return { root };
         }
 
         /********************************************************************
-         * 6. ESTADO Y LÓGICA DEL JUEGO
+         * 6. ESTADO DE JUEGO Y LÓGICA DE FASES + CRICKET NORMAL Y CUT-THROAT
          ********************************************************************/
+        function createEmptyCricketMap() {
+            const m = {};
+            CRICKET_TARGETS.forEach(t => { m[t] = 0; });
+            return m;
+        }
+
         const state = {
-            phase: 1, // 1: Elegir Área, 2: Barra Golf, 3: Retícula Oscilante, 4: Vuelo
-            gameMode: '501',
-            playerMode: 'VS_BOT', // 'VS_BOT', '2P', 'SOLO'
-            activePlayer: 'P1',
+            phase: 1,
+            playerMode: 'VS_BOT',       // 'VS_BOT', '2P', 'SOLO'
+            gameMode: '501',           // '501', 'CRICKET', 'CRICKET_CUTTHROAT', 'PRACTICE'
+            difficultyIdx: 1,          // 0: Fácil, 1: Normal, 2: Pro IA
             p1Name: 'COKE',
             p2Name: 'ORDENADOR (IA)',
-            scoreP1: 501,
-            scoreP2: 501,
+            activePlayer: 'P1',
+            round: 1,
             score: 501,
             turnStartScore: 501,
-            round: 1,
+            scoreP1: 501,
+            scoreP2: 501,
+            // Cricket
+            cricketMarksP1: createEmptyCricketMap(),
+            cricketMarksP2: createEmptyCricketMap(),
+            cricketScoreP1: 0,
+            cricketScoreP2: 0,
+            hoverTarget: new THREE.Vector2(0, 0.8),
+            lockedArea: new THREE.Vector2(0, 0.8),
+            barPos: 0.0,
+            barDir: 1.0,
+            sweetSpotCenter: 0.5,
+            precisionFactor: 1.0,
+            currentSwayPos: new THREE.Vector2(0, 0.8),
+            swayClock: 0,
             dartsInTurn: [],
             spawnedDarts: [],
-            difficultyIdx: 1, // 0: Fácil, 1: Normal, 2: Pro
-
-            hoverTarget: new THREE.Vector2(0, 0.98),
-            lockedArea: new THREE.Vector2(0, 0.98),
-            currentSwayPos: new THREE.Vector2(0, 0.98),
-
-            barPos: 0.1,
-            barDir: 1,
-            sweetCenter: 0.5,
-            precisionFactor: 1.0,
-            swayClock: 0,
-            activeFlight: null
+            activeFlight: null,
+            _nextBotThrow: null
         };
 
-        const BAR_SPEEDS = [0.85, 1.35, 2.0];
+        const BAR_SPEEDS = [0.95, 1.45, 2.1];
 
-        // Elementos DOM
-        const mobP1Score = document.getElementById('mob-p1-score');
-        const mobP2Score = document.getElementById('mob-p2-score');
         const mobP1Name = document.getElementById('mob-p1-name');
         const mobP2Name = document.getElementById('mob-p2-name');
+        const mobP1Score = document.getElementById('mob-p1-score');
+        const mobP2Score = document.getElementById('mob-p2-score');
         const mobP1Box = document.getElementById('mob-p1-box');
         const mobP2Box = document.getElementById('mob-p2-box');
+        const mobCheckoutBanner = document.getElementById('mob-checkout-banner');
         const mobBarNeedle = document.getElementById('mob-bar-needle');
         const mobSweetZone = document.getElementById('mob-sweet-zone');
         const mobPhaseText = document.getElementById('mob-phase-text');
         const mobScorePreview = document.getElementById('mob-score-preview');
         const mobBtnActionLabel = document.getElementById('mob-btn-action-label');
-        const mobCheckoutBanner = document.getElementById('mob-checkout-banner');
         const floatingContainer = document.getElementById('floating-feedback-container');
+        const btnToggleCricket = document.getElementById('btn-toggle-cricket');
+        const cricketDrawer = document.getElementById('mobile-cricket-drawer');
+        const mobCricketRows = document.getElementById('mob-cricket-rows');
+        const cricketDrawerTitle = document.getElementById('cricket-drawer-title');
+
+        function isCricketMode() {
+            return state.gameMode === 'CRICKET' || state.gameMode === 'CRICKET_CUTTHROAT';
+        }
+
+        function renderCricketMark(m) {
+            if (m >= 3) return '<span class="text-emerald-400 font-extrabold text-sm">⊗</span>';
+            if (m === 2) return '<span class="text-amber-300 font-extrabold text-sm">X</span>';
+            if (m === 1) return '<span class="text-amber-200 font-bold text-sm">/</span>';
+            return '<span class="text-slate-600 font-medium text-xs">-</span>';
+        }
+
+        function updateCricketBoardUI() {
+            if (!isCricketMode()) {
+                btnToggleCricket.classList.add('hidden');
+                cricketDrawer.classList.add('collapsed');
+                return;
+            }
+            btnToggleCricket.classList.remove('hidden');
+
+            const isCut = state.gameMode === 'CRICKET_CUTTHROAT';
+            cricketDrawerTitle.textContent = isCut
+                ? '⚔️ Cricket Cut-Throat (Menor puntaje gana)'
+                : '📋 Cricket Normal (Mayor puntaje gana)';
+
+            let html = `
+                <div class="grid grid-cols-3 py-1 px-2.5 bg-black/60 font-bold text-[10px] uppercase tracking-wider border-b border-amber-900/40 text-center">
+                    <div class="text-emerald-400 text-left">${state.p1Name} (${state.cricketScoreP1})</div>
+                    <div class="text-amber-300">OBJETIVO</div>
+                    <div class="text-amber-400 text-right">${state.p2Name} (${state.cricketScoreP2})</div>
+                </div>
+            `;
+
+            CRICKET_TARGETS.forEach(num => {
+                const m1 = state.cricketMarksP1[num] || 0;
+                const m2 = state.cricketMarksP2[num] || 0;
+                const label = num === 25 ? 'BULL' : num;
+                const closedBoth = m1 >= 3 && m2 >= 3;
+
+                html += `
+                    <div class="grid grid-cols-3 items-center py-1 px-2.5 ${closedBoth ? 'opacity-40 bg-black/20' : ''}">
+                        <div class="text-left flex items-center gap-1">
+                            ${renderCricketMark(m1)}
+                            ${m1 >= 3 && !closedBoth ? '<span class="text-[8px] bg-emerald-500/20 text-emerald-300 px-1 rounded">ABIERTO</span>' : ''}
+                        </div>
+                        <div class="text-center font-bold font-display ${closedBoth ? 'text-slate-500' : 'text-amber-200'}">
+                            ${label}
+                        </div>
+                        <div class="text-right flex items-center justify-end gap-1">
+                            ${m2 >= 3 && !closedBoth ? '<span class="text-[8px] bg-amber-500/20 text-amber-300 px-1 rounded">ABIERTO</span>' : ''}
+                            ${renderCricketMark(m2)}
+                        </div>
+                    </div>
+                `;
+            });
+
+            mobCricketRows.innerHTML = html;
+        }
 
         function updateMobileHUD() {
             mobP1Name.textContent = state.p1Name;
             mobP2Name.textContent = state.p2Name;
 
-            const s1 = state.activePlayer === 'P1' ? state.score : state.scoreP1;
-            const s2 = (state.activePlayer === 'P2' || state.activePlayer === 'BOT') ? state.score : state.scoreP2;
-            mobP1Score.textContent = s1;
-            mobP2Score.textContent = s2;
+            if (isCricketMode()) {
+                mobP1Score.textContent = `${state.cricketScoreP1} pts`;
+                mobP2Score.textContent = `${state.cricketScoreP2} pts`;
+                updateCricketBoardUI();
+            } else {
+                const s1 = state.activePlayer === 'P1' ? state.score : state.scoreP1;
+                const s2 = (state.activePlayer === 'P2' || state.activePlayer === 'BOT') ? state.score : state.scoreP2;
+                mobP1Score.textContent = s1;
+                mobP2Score.textContent = s2;
+            }
 
             if (state.activePlayer === 'P1') {
-                mobP1Box.className = 'flex items-baseline gap-1 opacity-100 drop-shadow-[0_0_6px_#38bdf8]';
+                mobP1Box.className = 'flex items-baseline gap-1 opacity-100 drop-shadow-[0_0_6px_#10b981]';
                 mobP2Box.className = 'flex items-baseline gap-1 opacity-50';
             } else {
                 mobP1Box.className = 'flex items-baseline gap-1 opacity-50';
-                mobP2Box.className = 'flex items-baseline gap-1 opacity-100 drop-shadow-[0_0_6px_#f43f5e]';
+                mobP2Box.className = 'flex items-baseline gap-1 opacity-100 drop-shadow-[0_0_6px_#f59e0b]';
             }
 
             for (let i = 1; i <= 3; i++) {
                 const dot = document.getElementById(`mob-dart-${i}`);
                 if (dot) {
                     dot.className = i <= state.dartsInTurn.length
-                        ? 'w-2.5 h-2.5 rounded-full bg-slate-600 border border-slate-500 opacity-40'
+                        ? 'w-2.5 h-2.5 rounded-full bg-stone-700 border border-stone-600 opacity-40'
                         : 'w-2.5 h-2.5 rounded-full bg-amber-400 shadow-[0_0_8px_#f59e0b]';
                 }
             }
 
             // Banner contextual
-            if (state.score <= 40 && state.score % 2 === 0 && state.score >= 2) {
-                mobCheckoutBanner.textContent = `🎯 Cierre directo: Doble ${state.score / 2} (D${state.score / 2})`;
-            } else if (state.score === 50) {
-                mobCheckoutBanner.textContent = '🎯 Cierre directo: Bullseye (50)';
+            if (isCricketMode()) {
+                const myMarks = state.activePlayer === 'P1' ? state.cricketMarksP1 : state.cricketMarksP2;
+                const closedCount = CRICKET_TARGETS.filter(t => myMarks[t] >= 3).length;
+                const isCut = state.gameMode === 'CRICKET_CUTTHROAT';
+                mobCheckoutBanner.textContent = `Ronda ${state.round} • ${state.activePlayer === 'P1' ? state.p1Name : state.p2Name} (Cerrados: ${closedCount}/7) ${isCut ? '• ⚔️ Cut-Throat' : ''}`;
+            } else if (state.gameMode === '501') {
+                if (state.score <= 40 && state.score % 2 === 0 && state.score >= 2) {
+                    mobCheckoutBanner.textContent = `🎯 Cierre directo: Doble ${state.score / 2} (D${state.score / 2})`;
+                } else if (state.score === 50) {
+                    mobCheckoutBanner.textContent = '🎯 Cierre directo: Bullseye (50)';
+                } else {
+                    mobCheckoutBanner.textContent = `Ronda ${state.round} • Turno de ${state.activePlayer === 'P1' ? state.p1Name : state.p2Name}`;
+                }
             } else {
-                mobCheckoutBanner.textContent = `Ronda ${state.round} • Turno de ${state.activePlayer === 'P1' ? state.p1Name : state.p2Name}`;
+                mobCheckoutBanner.textContent = `Práctica Libre • Ronda ${state.round}`;
             }
         }
 
@@ -650,34 +782,36 @@
         }
 
         function randomizeSweetSpot() {
-            state.sweetCenter = 0.38 + Math.random() * 0.24;
-            const w = [0.14, 0.10, 0.06][state.difficultyIdx];
-            mobSweetZone.style.left = `${(state.sweetCenter - w / 2) * 100}%`;
-            mobSweetZone.style.width = `${w * 100}%`;
+            state.sweetSpotCenter = 0.25 + Math.random() * 0.50;
+            mobSweetZone.style.left = `${(state.sweetSpotCenter - 0.05) * 100}%`;
+            mobSweetZone.style.width = '10%';
+            state.barPos = 0.0;
+            state.barDir = 1.0;
         }
 
         function triggerMobileAction() {
+            if (state.activeFlight || state.activePlayer === 'BOT') return;
+
             if (state.phase === 1) {
-                state.lockedArea.copy(state.hoverTarget);
                 sound.playLock();
+                state.lockedArea.copy(state.hoverTarget);
                 setMobilePhase(2);
             } else if (state.phase === 2) {
-                const diff = Math.abs(state.barPos - state.sweetCenter);
-                state.precisionFactor = Math.max(0.05, 1.0 - (diff / 0.5));
-                const pct = Math.round(state.precisionFactor * 100);
-                mobScorePreview.textContent = `${pct}% Pulso`;
                 sound.playLock();
+                const dist = Math.abs(state.barPos - state.sweetSpotCenter);
+                state.precisionFactor = Math.max(0.08, 1.0 - (dist / 0.35));
+                const pct = Math.round(state.precisionFactor * 100);
+                mobScorePreview.textContent = `Precisión: ${pct}%`;
                 setMobilePhase(3);
             } else if (state.phase === 3) {
+                sound.playThrow();
+                setMobilePhase(4);
                 launchDart(state.currentSwayPos.x, state.currentSwayPos.y, false);
             }
         }
 
         function launchDart(tx, ty, isBot = false) {
-            setMobilePhase(4);
-            sound.playWhoosh();
-
-            const dartColor = isBot ? 0xf43f5e : 0xf59e0b;
+            const dartColor = isBot ? 0xb45309 : 0x10b981;
             const { root } = createDartMesh(dartColor);
             scene.add(root);
             state.spawnedDarts.push(root);
@@ -700,9 +834,15 @@
 
         function evaluateHit(x, y) {
             const r = Math.hypot(x, y);
-            if (r <= BOARD_RADII.innerBull) return { points: 50, isDouble: true, label: '¡BULLSEYE! (50 pts)' };
-            if (r <= BOARD_RADII.outerBull) return { points: 25, isDouble: false, label: 'Bull Exterior (25 pts)' };
-            if (r > BOARD_RADII.doubleOuter) return { points: 0, isDouble: false, label: 'Fuera de Diana (0)' };
+            if (r <= BOARD_RADII.innerBull) {
+                return { points: 50, baseNumber: 25, multiplier: 2, isDouble: true, isTriple: false, isBull: true, label: '¡BULLSEYE! (50 pts)' };
+            }
+            if (r <= BOARD_RADII.outerBull) {
+                return { points: 25, baseNumber: 25, multiplier: 1, isDouble: false, isTriple: false, isBull: true, label: 'Bull Exterior (25 pts)' };
+            }
+            if (r > BOARD_RADII.doubleOuter) {
+                return { points: 0, baseNumber: 0, multiplier: 0, isDouble: false, isTriple: false, isBull: false, label: 'Fuera de Diana (0)' };
+            }
 
             let angle = Math.atan2(x, y);
             if (angle < 0) angle += Math.PI * 2;
@@ -711,12 +851,78 @@
             const base = DART_NUMBERS[idx];
 
             if (r >= BOARD_RADII.tripleInner && r <= BOARD_RADII.tripleOuter) {
-                return { points: base * 3, isDouble: false, label: `¡TRIPLE ${base}! (${base * 3})` };
+                return { points: base * 3, baseNumber: base, multiplier: 3, isDouble: false, isTriple: true, isBull: false, label: `¡TRIPLE ${base}! (${base * 3})` };
             }
             if (r >= BOARD_RADII.doubleInner && r <= BOARD_RADII.doubleOuter) {
-                return { points: base * 2, isDouble: true, label: `¡DOBLE ${base}! (${base * 2})` };
+                return { points: base * 2, baseNumber: base, multiplier: 2, isDouble: true, isTriple: false, isBull: false, label: `¡DOBLE ${base}! (${base * 2})` };
             }
-            return { points: base, isDouble: false, label: `Simple ${base}` };
+            return { points: base, baseNumber: base, multiplier: 1, isDouble: false, isTriple: false, isBull: false, label: `Simple ${base}` };
+        }
+
+        function applyCricketHit(hit, who = 'P1') {
+            const target = hit.baseNumber;
+            const hits = hit.multiplier;
+
+            if (!CRICKET_TARGETS.includes(target) || hits <= 0) {
+                return { closedNow: false, pointsAdded: 0, validCricketHit: false, marksAdded: 0 };
+            }
+
+            const myMarks = who === 'P1' ? state.cricketMarksP1 : state.cricketMarksP2;
+            const oppMarks = who === 'P1' ? state.cricketMarksP2 : state.cricketMarksP1;
+
+            const prev = myMarks[target] || 0;
+            const needed = Math.max(0, 3 - prev);
+            const used = Math.min(hits, needed);
+            const extra = hits - used;
+
+            myMarks[target] = Math.min(3, prev + hits);
+            const closedNow = prev < 3 && myMarks[target] === 3;
+
+            let pointsAdded = 0;
+            const oppClosed = oppMarks[target] >= 3;
+
+            if (extra > 0 && !oppClosed) {
+                pointsAdded = extra * target;
+                if (state.gameMode === 'CRICKET_CUTTHROAT') {
+                    // En Cut-Throat, los puntos de penalización se le cargan al RIVAL
+                    if (who === 'P1') {
+                        state.cricketScoreP2 += pointsAdded;
+                    } else {
+                        state.cricketScoreP1 += pointsAdded;
+                    }
+                } else {
+                    // En Cricket Normal, los puntos son para el lanzador
+                    if (who === 'P1') {
+                        state.cricketScoreP1 += pointsAdded;
+                    } else {
+                        state.cricketScoreP2 += pointsAdded;
+                    }
+                }
+            }
+
+            return {
+                closedNow,
+                pointsAdded,
+                validCricketHit: true,
+                marksAdded: hits,
+                totalMarks: myMarks[target]
+            };
+        }
+
+        function checkCricketWinCondition() {
+            const p1All = CRICKET_TARGETS.every(t => state.cricketMarksP1[t] >= 3);
+            const p2All = CRICKET_TARGETS.every(t => state.cricketMarksP2[t] >= 3);
+
+            if (state.gameMode === 'CRICKET_CUTTHROAT') {
+                // Cut-Throat: Quien cierra todo con MENOR o igual puntaje gana
+                if (p1All && state.cricketScoreP1 <= state.cricketScoreP2) return 'P1';
+                if (p2All && state.cricketScoreP2 <= state.cricketScoreP1) return (state.playerMode === 'VS_BOT' ? 'BOT' : 'P2');
+            } else {
+                // Cricket Normal: Quien cierra todo con MAYOR o igual puntaje gana
+                if (p1All && state.cricketScoreP1 >= state.cricketScoreP2) return 'P1';
+                if (p2All && state.cricketScoreP2 >= state.cricketScoreP1) return (state.playerMode === 'VS_BOT' ? 'BOT' : 'P2');
+            }
+            return null;
         }
 
         function onLanded(tx, ty, isBot = false) {
@@ -738,6 +944,42 @@
                     state.score = rem;
                 }
                 state.dartsInTurn.push(hit);
+            } else if (isCricketMode()) {
+                const who = isBot ? 'P2' : (state.activePlayer === 'P1' ? 'P1' : 'P2');
+                const cRes = applyCricketHit(hit, who);
+
+                if (cRes.closedNow) sound.playCricketClose();
+
+                state.dartsInTurn.push({ ...hit, points: cRes.pointsAdded });
+
+                const winner = checkCricketWinCondition();
+                if (winner) {
+                    win = true;
+                }
+
+                const prefix = isBot ? '🤖 BOT: ' : '';
+                if (cRes.closedNow && cRes.pointsAdded > 0) {
+                    showFloatingBanner(`${prefix}¡CERRADO +${cRes.pointsAdded} PTS!`, hit.label, 'text-emerald-400');
+                } else if (cRes.closedNow) {
+                    const sec = hit.baseNumber === 25 ? 'BULL' : hit.baseNumber;
+                    showFloatingBanner(`${prefix}¡${sec} CERRADO! (⊗)`, hit.label, 'text-emerald-400');
+                } else if (cRes.pointsAdded > 0) {
+                    const isCut = state.gameMode === 'CRICKET_CUTTHROAT';
+                    showFloatingBanner(
+                        isCut ? `${prefix}+${cRes.pointsAdded} CASTIGO AL RIVAL` : `${prefix}+${cRes.pointsAdded} PUNTOS`,
+                        hit.label,
+                        isCut ? 'text-rose-400' : 'text-amber-300'
+                    );
+                } else if (cRes.validCricketHit) {
+                    showFloatingBanner(`${prefix}${hit.label}`, `${cRes.marksAdded} marca(s) en ${hit.baseNumber === 25 ? 'Bull' : hit.baseNumber}`, 'text-amber-300');
+                } else {
+                    showFloatingBanner(`${prefix}${hit.label}`, 'Sector no puntuable en Cricket', 'text-slate-400');
+                }
+            } else {
+                // Práctica
+                state.score += hit.points;
+                state.dartsInTurn.push(hit);
+                showFloatingBanner(hit.label, `+${hit.points} pts`, 'text-amber-300');
             }
 
             updateMobileHUD();
@@ -745,17 +987,19 @@
             if (win) {
                 sound.playFanfare();
                 const winnerName = isBot ? state.p2Name : (state.activePlayer === 'P1' ? state.p1Name : state.p2Name);
-                showFloatingBanner(`🏆 ¡GANA ${winnerName}!`, 'Partida Completada', 'text-emerald-400');
+                showFloatingBanner(`🏆 ¡GANA ${winnerName.toUpperCase()}!`, 'Partida Finalizada', 'text-emerald-400');
                 setTimeout(() => resetMatch(), 3400);
                 return;
             }
 
-            if (bust) {
-                showFloatingBanner('¡PASADO! (BUST)', 'Requiere Doble exacto', 'text-rose-400');
-                while (state.dartsInTurn.length < 3) state.dartsInTurn.push({ points: 0, label: 'Anulado' });
-                updateMobileHUD();
-            } else {
-                showFloatingBanner(hit.label, `Dardo ${state.dartsInTurn.length}/3`, hit.points >= 40 ? 'text-emerald-400' : 'text-amber-300');
+            if (state.gameMode === '501') {
+                if (bust) {
+                    showFloatingBanner('¡PASADO! (BUST)', 'Requiere Doble exacto', 'text-rose-400');
+                    while (state.dartsInTurn.length < 3) state.dartsInTurn.push({ points: 0, label: 'Anulado' });
+                    updateMobileHUD();
+                } else {
+                    showFloatingBanner(hit.label, `Dardo ${state.dartsInTurn.length}/3`, hit.points >= 40 ? 'text-emerald-400' : 'text-amber-300');
+                }
             }
 
             if (isBot && state._nextBotThrow) {
@@ -766,34 +1010,36 @@
             setTimeout(() => {
                 if (state.dartsInTurn.length >= 3) {
                     if (state.playerMode === 'VS_BOT') {
-                        state.scoreP1 = state.score;
                         runMobileBotTurn();
                         return;
                     }
                     if (state.playerMode === '2P') {
                         if (state.activePlayer === 'P1') {
-                            state.scoreP1 = state.score;
                             state.activePlayer = 'P2';
-                            state.score = state.scoreP2;
-                            state.turnStartScore = state.scoreP2;
+                            if (state.gameMode === '501') {
+                                state.scoreP1 = state.score;
+                                state.score = state.scoreP2;
+                                state.turnStartScore = state.scoreP2;
+                            }
                             clearDarts();
                             updateMobileHUD();
                             showFloatingBanner(`Turno de ${state.p2Name}`, '3 dardos listos', 'text-amber-300');
                         } else {
-                            state.scoreP2 = state.score;
                             state.activePlayer = 'P1';
-                            state.score = state.scoreP1;
-                            state.turnStartScore = state.scoreP1;
+                            if (state.gameMode === '501') {
+                                state.scoreP2 = state.score;
+                                state.score = state.scoreP1;
+                                state.turnStartScore = state.scoreP1;
+                            }
                             state.round++;
                             clearDarts();
                             updateMobileHUD();
-                            showFloatingBanner(`Turno de ${state.p1Name}`, `Ronda ${state.round}`, 'text-sky-300');
+                            showFloatingBanner(`Turno de ${state.p1Name}`, `Ronda ${state.round}`, 'text-emerald-300');
                         }
                         setMobilePhase(1);
                         return;
                     }
                     state.round++;
-                    state.turnStartScore = state.score;
                     clearDarts();
                 }
                 setMobilePhase(1);
@@ -803,29 +1049,52 @@
         function runMobileBotTurn() {
             state.activePlayer = 'BOT';
             clearDarts();
-            state.score = state.scoreP2;
-            state.turnStartScore = state.scoreP2;
+            if (state.gameMode === '501') {
+                state.score = state.scoreP2;
+                state.turnStartScore = state.scoreP2;
+            }
             updateMobileHUD();
             mobPhaseText.textContent = `🤖 Turno de ${state.p2Name}...`;
 
             let botDart = 0;
             function throwBotDart() {
-                if (state.score <= 0) return;
-                let target = 20;
+                let chosenTarget = 20;
                 let r = (BOARD_RADII.tripleInner + BOARD_RADII.tripleOuter) / 2;
-                const rem = state.score;
 
-                if (rem <= 40 && rem % 2 === 0 && rem >= 2) {
-                    target = rem / 2;
-                    r = (BOARD_RADII.doubleInner + BOARD_RADII.doubleOuter) / 2;
-                } else if (rem === 50) {
-                    target = 25;
-                    r = 0;
+                if (isCricketMode()) {
+                    // IA en Cricket
+                    const isCut = state.gameMode === 'CRICKET_CUTTHROAT';
+                    let candidate = null;
+
+                    if (isCut && state.cricketScoreP2 > state.cricketScoreP1) {
+                        // En Cut-Throat, si la IA tiene más puntos (está perdiendo), tira a sus números cerrados para castigar
+                        candidate = CRICKET_TARGETS.find(t => state.cricketMarksP2[t] >= 3 && state.cricketMarksP1[t] < 3);
+                    } else if (!isCut && state.cricketScoreP2 < state.cricketScoreP1) {
+                        // En Cricket normal, si va perdiendo en puntos, anota en sus abiertos
+                        candidate = CRICKET_TARGETS.find(t => state.cricketMarksP2[t] >= 3 && state.cricketMarksP1[t] < 3);
+                    }
+
+                    if (!candidate) {
+                        // Busca su objetivo no cerrado de mayor valor
+                        candidate = CRICKET_TARGETS.find(t => state.cricketMarksP2[t] < 3) || 25;
+                    }
+
+                    chosenTarget = candidate;
+                    if (chosenTarget === 25) r = 0;
+                } else if (state.gameMode === '501') {
+                    const rem = state.score;
+                    if (rem <= 40 && rem % 2 === 0 && rem >= 2) {
+                        chosenTarget = rem / 2;
+                        r = (BOARD_RADII.doubleInner + BOARD_RADII.doubleOuter) / 2;
+                    } else if (rem === 50) {
+                        chosenTarget = 25;
+                        r = 0;
+                    }
                 }
 
                 let tx = 0, ty = 0;
-                if (target !== 25) {
-                    const idx = DART_NUMBERS.indexOf(target);
+                if (chosenTarget !== 25) {
+                    const idx = DART_NUMBERS.indexOf(chosenTarget);
                     const angle = idx * ((Math.PI * 2) / 20);
                     tx = Math.sin(angle) * r;
                     ty = Math.cos(angle) * r;
@@ -840,17 +1109,21 @@
 
             setTimeout(throwBotDart, 600);
             state._nextBotThrow = () => {
-                if (state.score === 0) return;
-                if (botDart < 3 && state.score > 1) {
+                if (state.gameMode === '501' && state.score === 0) return;
+                if (isCricketMode() && checkCricketWinCondition()) return;
+
+                if (botDart < 3 && (state.gameMode !== '501' || state.score > 1)) {
                     setTimeout(throwBotDart, 700);
                 } else {
                     setTimeout(() => {
-                        state.scoreP2 = state.score;
+                        if (state.gameMode === '501') {
+                            state.scoreP2 = state.score;
+                            state.score = state.scoreP1;
+                            state.turnStartScore = state.scoreP1;
+                        }
                         state.activePlayer = 'P1';
                         state.round++;
                         clearDarts();
-                        state.score = state.scoreP1;
-                        state.turnStartScore = state.scoreP1;
                         updateMobileHUD();
                         setMobilePhase(1);
                     }, 900);
@@ -872,6 +1145,10 @@
             state.scoreP2 = 501;
             state.score = 501;
             state.turnStartScore = 501;
+            state.cricketMarksP1 = createEmptyCricketMap();
+            state.cricketMarksP2 = createEmptyCricketMap();
+            state.cricketScoreP1 = 0;
+            state.cricketScoreP2 = 0;
             updateMobileHUD();
             setMobilePhase(1);
         }
@@ -880,9 +1157,9 @@
             const el = document.createElement('div');
             el.className = 'fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 text-center pointer-events-none z-50 animate-feedback';
             el.innerHTML = `
-                <div class="hud-glass px-5 py-2.5 rounded-2xl border-white/20 shadow-2xl">
+                <div class="hud-glass px-5 py-2.5 rounded-2xl border-amber-600/50 shadow-2xl">
                     <div class="font-display font-extrabold text-2xl ${colorCls} tracking-wider">${title}</div>
-                    ${sub ? `<div class="text-xs text-slate-300 mt-0.5">${sub}</div>` : ''}
+                    ${sub ? `<div class="text-xs text-amber-200/80 mt-0.5">${sub}</div>` : ''}
                 </div>
             `;
             floatingContainer.appendChild(el);
@@ -890,7 +1167,7 @@
         }
 
         /********************************************************************
-         * 7. CONTROLES TÁCTILES Y RAYCASTING
+         * 7. CONTROLES TÁCTILES, RAYCASTING Y ZOOM
          ********************************************************************/
         const raycaster = new THREE.Raycaster();
         const pointerNDC = new THREE.Vector2();
@@ -913,7 +1190,54 @@
             }
         }
 
+        // Zoom con Rueda del Ratón
+        window.addEventListener('wheel', (e) => {
+            if (e.target.closest('#mobile-setup-modal, #mobile-cricket-drawer')) return;
+            e.preventDefault();
+            const delta = -e.deltaY * 0.0018;
+            targetZoom = Math.max(0.65, Math.min(1.85, targetZoom + delta));
+        }, { passive: false });
+
+        // Zoom con 2 dedos (Pinch-to-zoom)
+        let pinchDistStart = 0;
+        let pinchZoomStart = 1.0;
+
+        window.addEventListener('touchstart', (e) => {
+            if (e.touches.length === 2) {
+                const dx = e.touches[0].clientX - e.touches[1].clientX;
+                const dy = e.touches[0].clientY - e.touches[1].clientY;
+                pinchDistStart = Math.hypot(dx, dy);
+                pinchZoomStart = targetZoom;
+            }
+        }, { passive: true });
+
+        window.addEventListener('touchmove', (e) => {
+            if (e.touches.length === 2 && pinchDistStart > 10) {
+                const dx = e.touches[0].clientX - e.touches[1].clientX;
+                const dy = e.touches[0].clientY - e.touches[1].clientY;
+                const dist = Math.hypot(dx, dy);
+                const ratio = dist / pinchDistStart;
+                targetZoom = Math.max(0.65, Math.min(1.85, pinchZoomStart * ratio));
+            }
+        }, { passive: true });
+
+        // Botones rápidos de zoom en pantalla
+        document.getElementById('mob-zoom-in').addEventListener('click', (e) => {
+            e.stopPropagation();
+            targetZoom = Math.min(1.85, targetZoom + 0.22);
+        });
+        document.getElementById('mob-zoom-out').addEventListener('click', (e) => {
+            e.stopPropagation();
+            targetZoom = Math.max(0.65, targetZoom - 0.22);
+        });
+        document.getElementById('mob-zoom-reset').addEventListener('click', (e) => {
+            e.stopPropagation();
+            targetZoom = 1.0;
+        });
+
+        // Apuntado táctil
         renderer.domElement.addEventListener('pointerdown', (e) => {
+            if (e.pointerType === 'touch' && !e.isPrimary) return;
             handlePointerAim(e.clientX, e.clientY);
             triggerMobileAction();
         });
@@ -927,6 +1251,14 @@
             triggerMobileAction();
         });
 
+        // Alternar Pizarra Cricket
+        btnToggleCricket.addEventListener('click', () => {
+            cricketDrawer.classList.toggle('collapsed');
+        });
+        document.getElementById('btn-close-cricket').addEventListener('click', () => {
+            cricketDrawer.classList.add('collapsed');
+        });
+
         // Configuración y opciones
         const modal = document.getElementById('mobile-setup-modal');
         document.getElementById('btn-open-menu').addEventListener('click', () => {
@@ -935,8 +1267,10 @@
 
         document.querySelectorAll('.mob-opt-btn').forEach(b => {
             b.addEventListener('click', () => {
-                document.querySelectorAll('.mob-opt-btn').forEach(x => x.className = 'mob-opt-btn py-2 px-1 rounded-xl border border-white/10 bg-slate-900/60 text-slate-300 font-semibold text-xs flex flex-col items-center gap-1');
-                b.className = 'mob-opt-btn active-opt py-2 px-1 rounded-xl border border-sky-400 bg-sky-500/25 text-sky-200 font-bold text-xs flex flex-col items-center gap-1';
+                document.querySelectorAll('.mob-opt-btn').forEach(x => {
+                    x.className = 'mob-opt-btn py-2 px-1 rounded-xl border border-amber-900/40 bg-black/40 text-amber-200/70 font-semibold text-xs flex flex-col items-center gap-1';
+                });
+                b.className = 'mob-opt-btn active-opt py-2 px-1 rounded-xl border border-emerald-500/50 bg-emerald-900/40 text-emerald-200 font-bold text-xs flex flex-col items-center gap-1';
                 state.playerMode = b.getAttribute('data-opp');
                 document.getElementById('mob-p2-name-wrap').style.display = state.playerMode === 'SOLO' ? 'none' : 'block';
                 document.getElementById('mob-diff-wrap').style.display = state.playerMode === 'VS_BOT' ? 'block' : 'none';
@@ -945,16 +1279,20 @@
 
         document.querySelectorAll('.mob-mode-btn').forEach(b => {
             b.addEventListener('click', () => {
-                document.querySelectorAll('.mob-mode-btn').forEach(x => x.className = 'mob-mode-btn py-2 px-3 rounded-xl border border-white/10 bg-slate-900/60 text-slate-300 font-semibold text-xs');
-                b.className = 'mob-mode-btn py-2 px-3 rounded-xl border border-amber-400 bg-amber-500/25 text-amber-200 font-bold text-xs';
+                document.querySelectorAll('.mob-mode-btn').forEach(x => {
+                    x.className = 'mob-mode-btn py-2 px-1 rounded-xl border border-amber-900/40 bg-black/40 text-amber-200/70 font-semibold text-[11px] text-center';
+                });
+                b.className = 'mob-mode-btn py-2 px-1 rounded-xl border border-amber-500 bg-amber-700/30 text-amber-200 font-bold text-[11px] text-center';
                 state.gameMode = b.getAttribute('data-mode');
             });
         });
 
         document.querySelectorAll('.mob-diff-btn').forEach(b => {
             b.addEventListener('click', () => {
-                document.querySelectorAll('.mob-diff-btn').forEach(x => x.className = 'mob-diff-btn py-1 rounded-lg border border-white/10 bg-slate-900/60 text-slate-300 text-xs');
-                b.className = 'mob-diff-btn py-1 rounded-lg border border-sky-400 bg-sky-500/25 text-sky-200 text-xs font-bold';
+                document.querySelectorAll('.mob-diff-btn').forEach(x => {
+                    x.className = 'mob-diff-btn py-1 rounded-lg border border-amber-900/40 bg-black/40 text-amber-200/70 text-xs';
+                });
+                b.className = 'mob-diff-btn py-1 rounded-lg border border-emerald-500 bg-emerald-900/30 text-emerald-200 text-xs font-bold';
                 state.difficultyIdx = parseInt(b.getAttribute('data-diff'), 10);
             });
         });
@@ -968,12 +1306,18 @@
         });
 
         /********************************************************************
-         * 8. BUCLE PRINCIPAL DE ANIMACIÓN
+         * 8. BUCLE PRINCIPAL DE ANIMACIÓN CON ZOOM SUAVE
          ********************************************************************/
         const clock = new THREE.Clock();
         function animate() {
             requestAnimationFrame(animate);
             const dt = Math.min(clock.getDelta(), 0.05);
+
+            // Interpolación de Zoom
+            currentZoom += (targetZoom - currentZoom) * 0.15;
+            camera.position.z = BASE_CAM_POS.z / currentZoom;
+            camera.position.y = CAM_LOOK.y + (BASE_CAM_POS.y - CAM_LOOK.y) / currentZoom;
+            camera.lookAt(CAM_LOOK);
 
             if (state.phase === 1) {
                 aimGroup.position.x += (state.hoverTarget.x - aimGroup.position.x) * 0.4;
