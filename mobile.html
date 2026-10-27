@@ -8,6 +8,9 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@700;900&family=Chakra+Petch:wght@600;700&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <style>
+            /* Disable default touch scrolling/zooming on canvas area */
+            #canvas-container { touch-action: none; }
+
         * {
             user-select: none;
             -webkit-user-select: none;
@@ -88,9 +91,8 @@
             transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.3s;
         }
         #mobile-cricket-drawer.collapsed {
-            transform: translateY(-120%);
-            opacity: 0;
-            pointer-events: none;
+            display: none !important;
+            pointer-events: none !important;
         }
     </style>
 </head>
@@ -120,9 +122,9 @@
     <div class="relative z-10 pointer-events-none w-full h-full flex flex-col justify-between p-3" style="padding-top: max(0.6rem, env(safe-area-inset-top)); padding-bottom: max(0.6rem, env(safe-area-inset-bottom));">
 
         <!-- Zona Superior: Marcador + Turno + Cierre + Botón Pizarra -->
-        <div class="flex flex-col gap-1 w-full pointer-events-auto">
+        <div class="flex flex-col gap-1 w-full pointer-events-none">
             <!-- Barra Superior Flotante: Marcador + Turno + Menú -->
-            <div class="flex items-center justify-between w-full">
+            <div class="flex items-center justify-between w-full pointer-events-auto">
                 <!-- Marcador Versus estilo Píldora Ocre / Fieltro -->
                 <div class="hud-glass flex items-center gap-2 px-3 py-1.5 rounded-full border-amber-600/40">
                     <div id="mob-p1-box" class="flex items-baseline gap-1">
@@ -165,7 +167,7 @@
             </div>
 
             <!-- Cajón Desplegable de Pizarra Cricket Móvil -->
-            <div id="mobile-cricket-drawer" class="collapsed w-full max-w-sm mx-auto hud-glass rounded-2xl p-2.5 border-amber-600/40 shadow-2xl">
+            <div id="mobile-cricket-drawer" class="collapsed w-full max-w-sm mx-auto hud-glass rounded-2xl p-2.5 border-amber-600/40 shadow-2xl pointer-events-auto">
                 <div class="flex items-center justify-between mb-1.5 px-1">
                     <span id="cricket-drawer-title" class="text-[11px] font-bold text-amber-300 uppercase tracking-wider">
                         📋 Cricket Normal (Más puntos gana)
@@ -192,7 +194,7 @@
                 <div class="flex items-center justify-between text-[11px] mb-1 px-1">
                     <span id="mob-phase-badge" class="font-bold text-amber-300 uppercase tracking-wider flex items-center gap-1.5">
                         <span class="w-2 h-2 rounded-full bg-amber-400 animate-pulse"></span>
-                        <span id="mob-phase-text">Paso 1: Toca la diana</span>
+                        <span id="mob-phase-text">Paso 1: Toca o arrastra en la diana</span>
                     </span>
                     <span id="mob-score-preview" class="text-emerald-300 font-bold">Precisión: --</span>
                 </div>
@@ -208,11 +210,17 @@
                 </div>
             </div>
 
-            <!-- Botón Grande de Acción Táctil (Fieltro verde y cuero ocre) -->
-            <button id="mob-btn-action" class="w-full py-3.5 px-4 rounded-2xl bg-gradient-to-r from-emerald-800 via-emerald-700 to-amber-800 active:scale-95 text-amber-100 font-pub font-bold text-base tracking-wider border border-amber-600/40 shadow-lg shadow-black/60 transition-transform flex items-center justify-center gap-2">
-                <span>🎯</span>
-                <span id="mob-btn-action-label">FIJAR ÁREA DE TIRO</span>
-            </button>
+            <!-- Botones de Acción Táctil (Fieltro verde y cuero ocre) -->
+            <div class="flex items-center gap-2 w-full">
+                <button id="mob-btn-cancel" class="hidden py-3.5 px-3 rounded-2xl bg-amber-950/90 border border-amber-600/50 text-amber-300 font-bold text-xs active:scale-95 transition flex items-center gap-1 shadow-lg">
+                    <span>↩</span>
+                    <span>Re-apuntar</span>
+                </button>
+                <button id="mob-btn-action" class="flex-1 py-3.5 px-4 rounded-2xl bg-gradient-to-r from-emerald-800 via-emerald-700 to-amber-800 active:scale-95 text-amber-100 font-pub font-bold text-base tracking-wider border border-amber-600/40 shadow-lg shadow-black/60 transition-transform flex items-center justify-center gap-2">
+                    <span>🎯</span>
+                    <span id="mob-btn-action-label">FIJAR ÁREA</span>
+                </button>
+            </div>
         </div>
 
     </div>
@@ -302,10 +310,57 @@
 
     <!-- Script del Motor de Juego 3D Móvil -->
     <script>
+        // Background music (looped, low volume)
+        const bgMusic = new Audio('https://cdn.jsdelivr.net/gh/lemontree123/free-audio/background.mp3');
+        bgMusic.loop = true;
+        bgMusic.volume = 0.15;
+        bgMusic.play().catch(() => {}); // handle autoplay restrictions
+        // Preload vocal effect clips
+        const wowAudio = new Audio('https://cdn.jsdelivr.net/gh/lemontree123/free-audio/wow.mp3');
+        const ahhAudio = new Audio('https://cdn.jsdelivr.net/gh/lemontree123/free-audio/ahh.mp3');
+        const huyAudio = new Audio('https://cdn.jsdelivr.net/gh/lemontree123/free-audio/huy.mp3');
         /********************************************************************
          * 1. AUDIO SINTETIZADO (WEB AUDIO API) + HÁPTICA VIBRACIÓN
          ********************************************************************/
         class MobileSoundEngine {
+            constructor() { this.ctx = null; }
+            init() {
+                if (!this.ctx) {
+                    const AudioCtx = window.AudioContext || window.webkitAudioContext;
+                    if (AudioCtx) this.ctx = new AudioCtx();
+                }
+                if (this.ctx && this.ctx.state === 'suspended') this.ctx.resume();
+            }
+            vibrate(ms = 15) {
+                if ('vibrate' in navigator) {
+                    try { navigator.vibrate(ms); } catch (e) {}
+                }
+            }
+            playTone(freq, type = 'sine', duration = 0.1, gainVal = 0.15) {
+                if (!this.ctx) return;
+                try {
+                    const osc = this.ctx.createOscillator();
+                    const gain = this.ctx.createGain();
+                    osc.type = type;
+                    osc.frequency.setValueAtTime(freq, this.ctx.currentTime);
+                    gain.gain.setValueAtTime(gainVal, this.ctx.currentTime);
+                    gain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + duration);
+                    osc.connect(gain);
+                    gain.connect(this.ctx.destination);
+                    osc.start();
+                    osc.stop(this.ctx.currentTime + duration);
+                } catch(e) {}
+            }
+            playLock() { this.vibrate(25); this.playTone(420, 'triangle', 0.08, 0.2); }
+            playThrow() { this.vibrate(18); this.playTone(280, 'sine', 0.12, 0.25); }
+            playImpact(isHigh = false) { this.vibrate(isHigh ? 45 : 20); this.playTone(isHigh ? 680 : 340, 'triangle', 0.15, 0.3); }
+            playCricketClose() { this.vibrate(50); this.playTone(523, 'sine', 0.1, 0.25); setTimeout(() => this.playTone(659, 'sine', 0.15, 0.3), 100); }
+            playFanfare() { this.vibrate([60, 40, 80]); const notes = [523.25, 659.25, 783.99, 1046.5]; notes.forEach((n, i) => { setTimeout(() => this.playTone(n, 'triangle', 0.22, 0.35), i * 110); }); }
+            // Vocal feedback methods
+            playWow() { if (typeof wowAudio !== 'undefined') wowAudio.currentTime = 0; wowAudio.play().catch(() => {}); }
+            playAhh() { if (typeof ahhAudio !== 'undefined') ahhAudio.currentTime = 0; ahhAudio.play().catch(() => {}); }
+            playHuy() { if (typeof huyAudio !== 'undefined') huyAudio.currentTime = 0; huyAudio.play().catch(() => {}); }
+        }
             constructor() { this.ctx = null; }
             init() {
                 if (!this.ctx) {
@@ -754,28 +809,54 @@
             }
         }
 
+        function updateAimPreview() {
+            if (state.phase !== 1) return;
+            const hit = evaluateHit(state.hoverTarget.x, state.hoverTarget.y);
+            let targetName = '';
+            if (hit.isBull) {
+                targetName = hit.baseNumber === 25 && hit.isDouble ? 'BULLSEYE (50)' : 'BULL EXT (25)';
+            } else if (hit.isTriple) {
+                targetName = `TRIPLE ${hit.baseNumber}`;
+            } else if (hit.isDouble) {
+                targetName = `DOBLE ${hit.baseNumber}`;
+            } else if (hit.points === 0) {
+                targetName = 'FUERA';
+            } else {
+                targetName = `SECTOR ${hit.baseNumber}`;
+            }
+            const ptsText = hit.points > 0 ? ` (${hit.points} pts)` : '';
+            mobPhaseText.textContent = `🎯 ${targetName}${ptsText}`;
+            mobBtnActionLabel.textContent = `FIJAR ${targetName}`;
+            mobScorePreview.textContent = hit.points > 0 ? `${hit.points} pts` : '--';
+        }
+
         function setMobilePhase(p) {
             state.phase = p;
+            const btnCancel = document.getElementById('mob-btn-cancel');
             if (p === 1) {
                 aimGroup.visible = true;
                 swayGroup.visible = false;
-                mobPhaseText.textContent = 'Paso 1: Toca la diana';
-                mobBtnActionLabel.textContent = 'FIJAR ÁREA';
-                mobScorePreview.textContent = 'Precisión: --';
+                if (btnCancel) btnCancel.classList.add('hidden');
+                updateAimPreview();
             } else if (p === 2) {
                 aimGroup.visible = true;
                 swayGroup.visible = false;
+                aimGroup.position.set(state.lockedArea.x, state.lockedArea.y, BOARD_Z_SURFACE + 0.005);
+                if (btnCancel) btnCancel.classList.remove('hidden');
                 randomizeSweetSpot();
                 mobPhaseText.textContent = 'Paso 2: ¡Fija precisión!';
                 mobBtnActionLabel.textContent = 'PARAR BARRA';
             } else if (p === 3) {
                 aimGroup.visible = true;
                 swayGroup.visible = true;
+                aimGroup.position.set(state.lockedArea.x, state.lockedArea.y, BOARD_Z_SURFACE + 0.005);
+                if (btnCancel) btnCancel.classList.remove('hidden');
                 mobPhaseText.textContent = 'Paso 3: ¡Lanza el dardo!';
                 mobBtnActionLabel.textContent = 'DISPARAR';
             } else if (p === 4) {
                 aimGroup.visible = false;
                 swayGroup.visible = false;
+                if (btnCancel) btnCancel.classList.add('hidden');
                 mobPhaseText.textContent = 'Dardo en vuelo...';
                 mobBtnActionLabel.textContent = 'VOLANDO...';
             }
@@ -795,6 +876,7 @@
             if (state.phase === 1) {
                 sound.playLock();
                 state.lockedArea.copy(state.hoverTarget);
+                aimGroup.position.set(state.lockedArea.x, state.lockedArea.y, BOARD_Z_SURFACE + 0.005);
                 setMobilePhase(2);
             } else if (state.phase === 2) {
                 sound.playLock();
@@ -927,7 +1009,22 @@
 
         function onLanded(tx, ty, isBot = false) {
             const hit = evaluateHit(tx, ty);
+            // Play impact sound first
             sound.playImpact(hit.points >= 40);
+            // Vocal feedback based on hit result
+            if (hit.points > 0) {
+                // High scoring hit (>=40) gets a special ahh, otherwise wow
+                if (hit.points >= 40) {
+                    sound.playAhh();
+                } else {
+                    sound.playWow();
+                }
+            } else {
+                // Missed the board
+                sound.playHuy();
+            }
+            
+            
 
             let bust = false;
             let win = false;
@@ -1024,6 +1121,9 @@
                             clearDarts();
                             updateMobileHUD();
                             showFloatingBanner(`Turno de ${state.p2Name}`, '3 dardos listos', 'text-amber-300');
+        // Frase después del turno en modo 501 o Cricket o Práctica
+        const phraseP2 = state.gameMode === '501' ? '¡Mantén la concentración!' : (isCricketMode() ? '¡Buen tiro!' : '¡Practica tu precisión!');
+        showFloatingBanner(phraseP2, '', 'text-slate-300');
                         } else {
                             state.activePlayer = 'P1';
                             if (state.gameMode === '501') {
@@ -1035,11 +1135,17 @@
                             clearDarts();
                             updateMobileHUD();
                             showFloatingBanner(`Turno de ${state.p1Name}`, `Ronda ${state.round}`, 'text-emerald-300');
+        // Frase después del turno en modo 501 o Cricket o Práctica
+        const phraseP1 = state.gameMode === '501' ? '¡Mantén la concentración!' : (isCricketMode() ? '¡Buen tiro!' : '¡Practica tu precisión!');
+        showFloatingBanner(phraseP1, '', 'text-slate-300');
                         }
                         setMobilePhase(1);
                         return;
                     }
                     state.round++;
+        // Frase al completar ronda en modo 501 o Cricket o Práctica
+        const phraseRound = state.gameMode === '501' ? '¡Sigue así!' : (isCricketMode() ? '¡Excelente juego!' : '¡Sigue practicando!');
+        showFloatingBanner(phraseRound, '', 'text-slate-300');
                     clearDarts();
                 }
                 setMobilePhase(1);
@@ -1187,6 +1293,9 @@
                     intersectPoint.y = (intersectPoint.y / r) * maxR;
                 }
                 state.hoverTarget.set(intersectPoint.x, intersectPoint.y);
+                aimGroup.position.x = intersectPoint.x;
+                aimGroup.position.y = intersectPoint.y;
+                updateAimPreview();
             }
         }
 
@@ -1235,21 +1344,72 @@
             targetZoom = 1.0;
         });
 
-        // Apuntado táctil
-        renderer.domElement.addEventListener('pointerdown', (e) => {
-            if (e.pointerType === 'touch' && !e.isPrimary) return;
-            handlePointerAim(e.clientX, e.clientY);
-            triggerMobileAction();
+        // Apuntado táctil con arrastre y toque directo
+        let isTouchingBoard = false;
+        let lastTapTime = 0;
+
+        function isInteractiveElement(target) {
+            return target && target.closest && target.closest('button, #mobile-setup-modal, #zoom-controls, #mobile-cricket-drawer, input, a');
+        }
+
+        window.addEventListener('pointerdown', (e) => {
+                // Capture the pointer so we continue receiving move events even if finger leaves the canvas
+                if (e.target && e.target.setPointerCapture) {
+                    e.target.setPointerCapture(e.pointerId);
+                }
+            if (isInteractiveElement(e.target)) return;
+            if (state.activeFlight || state.activePlayer === 'BOT') return;
+
+            if (state.phase === 1) {
+                isTouchingBoard = true;
+                handlePointerAim(e.clientX, e.clientY);
+
+                const now = Date.now();
+                if (now - lastTapTime < 350) {
+                    // Doble toque rápido confirma el objetivo
+                    triggerMobileAction();
+                    lastTapTime = 0;
+                    return;
+                }
+                lastTapTime = now;
+            } else if (state.phase === 2 || state.phase === 3) {
+                triggerMobileAction();
+            }
         });
 
-        renderer.domElement.addEventListener('pointermove', (e) => {
-            handlePointerAim(e.clientX, e.clientY);
+        window.addEventListener('pointermove', (e) => {
+            if (state.phase === 1 && (isTouchingBoard || e.pointerType === 'mouse')) {
+                handlePointerAim(e.clientX, e.clientY);
+            }
+        });
+
+        window.addEventListener('pointerup', (e) => {
+            if (isTouchingBoard) {
+                isTouchingBoard = false;
+                if (state.phase === 1) {
+                    handlePointerAim(e.clientX, e.clientY);
+                }
+            }
+        });
+
+        window.addEventListener('pointercancel', () => {
+            isTouchingBoard = false;
         });
 
         document.getElementById('mob-btn-action').addEventListener('click', (e) => {
             e.stopPropagation();
             triggerMobileAction();
         });
+
+        const mobBtnCancel = document.getElementById('mob-btn-cancel');
+        if (mobBtnCancel) {
+            mobBtnCancel.addEventListener('click', (e) => {
+                e.stopPropagation();
+                if (state.phase === 2 || state.phase === 3) {
+                    setMobilePhase(1);
+                }
+            });
+        }
 
         // Alternar Pizarra Cricket
         btnToggleCricket.addEventListener('click', () => {
@@ -1320,9 +1480,16 @@
             camera.lookAt(CAM_LOOK);
 
             if (state.phase === 1) {
-                aimGroup.position.x += (state.hoverTarget.x - aimGroup.position.x) * 0.4;
-                aimGroup.position.y += (state.hoverTarget.y - aimGroup.position.y) * 0.4;
-            } else if (state.phase === 2) {
+                if (!isTouchingBoard) {
+                    aimGroup.position.x += (state.hoverTarget.x - aimGroup.position.x) * 0.4;
+                    aimGroup.position.y += (state.hoverTarget.y - aimGroup.position.y) * 0.4;
+                }
+            } else if (state.phase === 2 || state.phase === 3) {
+                aimGroup.position.x = state.lockedArea.x;
+                aimGroup.position.y = state.lockedArea.y;
+            }
+            
+            if (state.phase === 2) {
                 const speed = BAR_SPEEDS[state.difficultyIdx];
                 state.barPos += state.barDir * speed * dt;
                 if (state.barPos >= 1.0) { state.barPos = 1.0; state.barDir = -1; }
