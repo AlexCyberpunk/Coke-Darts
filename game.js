@@ -477,6 +477,10 @@ function nextDart() {
         dartsLeft = 3;
         if (currentPlayerIdx === 0) gameTurn++;
         
+        // Non‑Coke player gets a brag after their turn
+        genericSpeechTimer = 3000;
+        genericSpeechText = PLAYER_BRAGS[Math.floor(Math.random() * PLAYER_BRAGS.length)];
+        playSound('speech');
         if (!p.isCoke) startTurn(); // Only block if Coke is talking
     } else {
         turnPhase = 0;

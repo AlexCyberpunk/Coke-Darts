@@ -705,7 +705,19 @@
         };
 
         const BAR_SPEEDS = [0.95, 1.45, 2.1];
-
+const turnPhrases = [
+    '¡Mantén la concentración!',
+    '¡Buen tiro!',
+    '¡Practica tu precisión!',
+    '¡Sigue así!',
+    '¡A por la victoria!',
+    '¡Vamos con todo!',
+    '¡Dale fuerte!',
+    '¡Acierta el blanco!',
+    '¡Que empiece la fiesta!',
+    '¡Rompe la tabla!' 
+];
+function randomChoice(arr) { return arr[Math.floor(Math.random() * arr.length)]; }
         const mobP1Name = document.getElementById('mob-p1-name');
         const mobP2Name = document.getElementById('mob-p2-name');
         const mobP1Score = document.getElementById('mob-p1-score');
@@ -1146,7 +1158,7 @@
                             updateMobileHUD();
                             showFloatingBanner(`Turno de ${state.p2Name}`, '3 dardos listos', 'text-amber-300');
         // Frase después del turno en modo 501 o Cricket o Práctica
-        const phraseP2 = state.gameMode === '501' ? '¡Mantén la concentración!' : (isCricketMode() ? '¡Buen tiro!' : '¡Practica tu precisión!');
+        const phraseP2 = randomChoice(turnPhrases);
         showFloatingBanner(phraseP2, '', 'text-slate-300');
                         } else {
                             state.activePlayer = 'P1';
@@ -1160,7 +1172,7 @@
                             updateMobileHUD();
                             showFloatingBanner(`Turno de ${state.p1Name}`, `Ronda ${state.round}`, 'text-emerald-300');
         // Frase después del turno en modo 501 o Cricket o Práctica
-        const phraseP1 = state.gameMode === '501' ? '¡Mantén la concentración!' : (isCricketMode() ? '¡Buen tiro!' : '¡Practica tu precisión!');
+        const phraseP1 = randomChoice(turnPhrases);
         showFloatingBanner(phraseP1, '', 'text-slate-300');
                         }
                         setMobilePhase(1);
